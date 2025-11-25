@@ -1,0 +1,5 @@
+{
+  "name": "Gestionale Profumeria Pro 4.0",
+  "description": "Una web app completa per la gestione di una profumeria, con magazzino, vendite, clienti, fornitori, produzione e un assistente AI integrato.",
+  "requestFramePermissions": []
+}
