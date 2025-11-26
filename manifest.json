@@ -1,16 +1,16 @@
 {
   "short_name": "GD-Parfum",
   "name": "GD-Parfum",
-  "description": "Un'applicazione per catalogare, gestire e localizzare rapidamente i tuoi oggetti in ambienti specifici come casa, garage o ufficio tramite un'interfaccia intuitiva basata su foto.",
+  "description": "Un'applicazione per gestire una profumeria professionale",
   "icons": [
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiByeD0iNjAiIGZpbGw9IiMxMTE3MTQiLz4KPHBhdGggZD0iTTUyIDEwOEwxMjggMTQ0TDIwNCAxMDhMMTI4IDcyTDUyIDEwOFoiIGZpbGw9IiMzOEUwN0IiLz4KPHBhdGggZD0iTTIwNCAxMDhWMTYwTDEyOCAxOTZWMTQ0TDIwNCAxMDhaIiBmaWxsPSIjMzhFMDdCIiBmaWxsLW9wYWNpdHk9IjAuOCIvPgo8cGF0aCBkPSJNNTIgMTA4VjE2MEwxMjggMTk2VjE0NEw1MiAxMDhaIiBmaWxsPSIjMzhFMDdCIi8+Cjwvc3ZnPg==",
-      "type": "image/svg+xml",
+      "src": "public/icon.png", 
+      "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgdmlld0JveD0iMCAwIDI1NiAyNTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiByeD0iNjAiIGZpbGw9IiMxMTE3MTQiLz4KPHBhdGggZD0iTTUyIDEwOEwxMjggMTQ0TDIwNCAxMDhMMTI4IDcyTDUyIDEwOFoiIGZpbGw9IiMzOEUwN0IiLz4KPHBhdGggZD0iTTIwNCAxMDhWMTYwTDEyOCAxOTZWMTQ0TDIwNCAxMDhaIiBmaWxsPSIjMzhFMDdCIiBmaWxsLW9wYWNpdHk9IjAuOCIvPgo8cGF0aCBkPSJNNTIgMTA4VjE2MEwxMjggMTk2VjE0NEw1MiAxMDhaIiBmaWxsPSIjMzhFMDdCIi8+Cjwvc3ZnPg==",
-      "type": "image/svg+xml",
+      "src": "public/icon.png",
+      "type": "image/png",
       "sizes": "512x512"
     }
   ],
