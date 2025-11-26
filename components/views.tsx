@@ -45,17 +45,17 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, title, documen
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const imgProperties = pdf.getImageProperties(data);
                 const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
                 const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
                 
                 let heightLeft = pdfHeight;
                 let position = 0;
-                const pageHeight = pdf.internal.pageSize.getHeight();
 
                 pdf.addImage(data, 'PNG', 0, position, pdfWidth, pdfHeight);
                 heightLeft -= pageHeight;
 
                 while (heightLeft > 0) {
-                    position = -heightLeft + pdfHeight * (pdf.internal.pages.length -1) * -1;
+                    position -= pageHeight; // Shift image up by one page height
                     pdf.addPage();
                     pdf.addImage(data, 'PNG', 0, position, pdfWidth, pdfHeight);
                     heightLeft -= pageHeight;
@@ -93,8 +93,9 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, title, documen
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title} footer={footer}>
-            <div className="bg-gray-100 dark:bg-gray-900 p-4 max-h-[60vh] overflow-y-auto">
-                <div ref={printRef} className="bg-white text-black p-8 shadow-lg printable-area w-[210mm] min-h-[297mm] mx-auto">
+            <div className="bg-gray-100 dark:bg-gray-900 p-4 max-h-[80vh] overflow-y-auto">
+                {/* Removed p-8 to allow children to control padding/margins perfectly for pagination */}
+                <div ref={printRef} className="bg-white text-black shadow-lg printable-area w-[210mm] min-h-[297mm] mx-auto">
                     {children}
                 </div>
             </div>
@@ -120,7 +121,7 @@ const PrintableSaleQuote: React.FC<PrintableSaleQuoteProps> = ({ doc, customer, 
     const shipping = doc.shippingCost || 0;
     
     return (
-        <div className="font-sans text-sm">
+        <div className="font-sans text-sm p-8">
             <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
                 <div>
                     <Briefcase size={48} className="text-primary-600" />
@@ -217,7 +218,7 @@ const PrintableStockLoad: React.FC<PrintableStockLoadProps> = ({ load, supplier,
     const shipping = load.shippingCost || 0;
 
     return (
-        <div className="font-sans text-sm">
+        <div className="font-sans text-sm p-8">
             <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
                 <div>
                      <h1 className="text-2xl font-bold">{companyInfo.name}</h1>
@@ -305,7 +306,7 @@ interface PrintableInventoryProps {
 }
 const PrintableInventory: React.FC<PrintableInventoryProps> = ({ variants, companyInfo }) => {
      return (
-        <div className="font-sans text-sm">
+        <div className="font-sans text-sm p-8">
             <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800 mb-6">
                 <div>
                      <h1 className="text-2xl font-bold">{companyInfo.name}</h1>
@@ -356,81 +357,100 @@ interface PrintableCatalogProps {
     title: string;
 }
 const PrintableCatalog: React.FC<PrintableCatalogProps> = ({ products, companyInfo, title }) => {
+    // 1. Raggruppa e Ordina per Brand
+    const sortedProducts = useMemo(() => {
+        return [...products].sort((a, b) => {
+            const brandA = (a.brand || '').toLowerCase();
+            const brandB = (b.brand || '').toLowerCase();
+            if (brandA < brandB) return -1;
+            if (brandA > brandB) return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [products]);
+
+    // 2. Suddividi in pagine da 5
+    const itemsPerPage = 5;
+    const pages = useMemo(() => {
+        const chunks = [];
+        for (let i = 0; i < sortedProducts.length; i += itemsPerPage) {
+            chunks.push(sortedProducts.slice(i, i + itemsPerPage));
+        }
+        return chunks;
+    }, [sortedProducts]);
+
     return (
-        <div className="font-sans">
-            <header className="text-center mb-10 border-b-4 border-primary-600 pb-6">
-                <h1 className="text-4xl font-bold uppercase text-gray-800">{companyInfo.name}</h1>
-                <h2 className="text-2xl text-gray-500 mt-2">{title}</h2>
-                <p className="text-sm text-gray-400 mt-1">Aggiornato al {new Date().toLocaleDateString()}</p>
-            </header>
-            
-            <div className="space-y-8">
-                {products.map((product, index) => (
-                    <div key={product.id} className="flex break-inside-avoid border-b pb-6 mb-6">
-                        <div className="w-1/3 pr-6">
-                            {product.imageUrl ? (
-                                <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover rounded-lg shadow-md" />
-                            ) : (
-                                <div className="w-full h-48 bg-gray-100 flex items-center justify-center rounded-lg text-gray-400">
-                                    <ImageIcon size={48} />
-                                </div>
-                            )}
-                        </div>
-                        <div className="w-2/3">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    {product.brand && <p className="text-sm font-bold text-gray-500 uppercase">{product.brand}</p>}
-                                    <h3 className="text-2xl font-bold text-gray-800 mb-1">{product.name}</h3>
-                                </div>
-                                {product.code && <span className="text-xs font-mono text-gray-400 border px-1 rounded">#{product.code}</span>}
+        <div className="font-sans text-gray-900">
+            {pages.map((chunk, pageIndex) => (
+                <div 
+                    key={pageIndex} 
+                    style={{ 
+                        width: '210mm', 
+                        height: '296mm', // Leggermente meno di 297 per evitare overflow
+                        padding: '15mm',
+                        position: 'relative',
+                        pageBreakAfter: pageIndex < pages.length - 1 ? 'always' : 'auto',
+                        backgroundColor: 'white',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}
+                >
+                    {/* Header */}
+                    <header className="border-b-2 border-primary-600 pb-4 mb-4 shrink-0">
+                         <div className="flex justify-between items-end">
+                            <div>
+                                <h1 className="text-2xl font-bold uppercase text-gray-800">{companyInfo.name}</h1>
+                                <p className="text-xs text-gray-500">{title} - Pagina {pageIndex + 1}</p>
                             </div>
-                            <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mb-3">{product.category}</span>
-                            
-                            {product.description && (
-                                <p className="text-gray-600 text-sm mb-4 italic">{product.description}</p>
-                            )}
-                            
-                            {product.olfactoryPyramid && (product.olfactoryPyramid.head || product.olfactoryPyramid.heart || product.olfactoryPyramid.base) && (
-                                <div className="mb-4 p-3 bg-gray-50 rounded text-xs">
-                                    <p><strong>Testa:</strong> {product.olfactoryPyramid.head}</p>
-                                    <p><strong>Cuore:</strong> {product.olfactoryPyramid.heart}</p>
-                                    <p><strong>Fondo:</strong> {product.olfactoryPyramid.base}</p>
-                                </div>
-                            )}
-
-                             {/* Info Tecniche */}
-                            {(product.essenceCode || product.ifraLimit) && (
-                                <div className="mb-4 text-xs text-gray-600 flex space-x-4">
-                                    {product.essenceCode && <span><strong>Cod. Essenza:</strong> {product.essenceCode}</span>}
-                                    {product.ifraLimit && <span><strong>IFRA:</strong> {product.ifraLimit.toFixed(2)}%</span>}
-                                </div>
-                            )}
-
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="text-left text-gray-500 border-b">
-                                        <th className="pb-1">Formato</th>
-                                        <th className="pb-1 text-right">Prezzo</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {product.variants.sort((a,b) => a.salePrice - b.salePrice).map(v => (
-                                        <tr key={v.id}>
-                                            <td className="py-1 font-medium">{v.name}</td>
-                                            <td className="py-1 text-right">€{v.salePrice.toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <div className="text-right text-xs text-gray-400">
+                                {new Date().toLocaleDateString()}
+                            </div>
                         </div>
+                    </header>
+                    
+                    {/* Content: 5 Items */}
+                    <div className="flex-grow flex flex-col justify-start space-y-4">
+                        {chunk.map((product) => (
+                            <div key={product.id} className="flex flex-row border-b last:border-0 pb-2 h-[42mm] overflow-hidden">
+                                <div className="w-[40mm] h-[40mm] flex-shrink-0 bg-gray-50 rounded flex items-center justify-center mr-4">
+                                    {product.imageUrl ? (
+                                        <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-full object-contain" />
+                                    ) : (
+                                        <ImageIcon className="text-gray-300" size={24} />
+                                    )}
+                                </div>
+                                <div className="flex-grow min-w-0 flex flex-col justify-center">
+                                    <div className="flex justify-between items-baseline">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary-700">{product.brand || 'NO BRAND'}</span>
+                                        <span className="text-[10px] font-mono text-gray-400">#{product.code}</span>
+                                    </div>
+                                    <h3 className="text-base font-bold truncate leading-tight mb-1">{product.name}</h3>
+                                    <p className="text-[10px] text-gray-500 line-clamp-2 italic mb-1">{product.description}</p>
+                                    
+                                    {/* Varianti compatte */}
+                                    <div className="flex flex-wrap gap-2 mt-auto">
+                                        {product.variants.slice(0, 4).map(v => (
+                                            <span key={v.id} className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border border-gray-200 whitespace-nowrap">
+                                                {v.name}: <strong>€{v.salePrice.toFixed(2)}</strong>
+                                            </span>
+                                        ))}
+                                        {product.variants.length > 4 && <span className="text-[10px] text-gray-400">+{product.variants.length - 4} varianti</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                ))}
-            </div>
+                    
+                    {/* Footer */}
+                    <footer className="mt-auto pt-2 border-t text-center text-[9px] text-gray-400 shrink-0">
+                        {companyInfo.address} - {companyInfo.city} | P.IVA: {companyInfo.vatNumber} | {companyInfo.email}
+                    </footer>
+                </div>
+            ))}
             
-            <footer className="mt-10 pt-4 text-center text-xs text-gray-400 border-t">
-                <p>{companyInfo.address} - {companyInfo.city}</p>
-                <p>{companyInfo.email} - {companyInfo.phone}</p>
-            </footer>
+            {pages.length === 0 && (
+                <div className="p-10 text-center">Nessun prodotto da visualizzare.</div>
+            )}
         </div>
     );
 };
@@ -999,7 +1019,7 @@ const SalesHistoryView: React.FC = () => {
                 <PrintModal isOpen={!!printDoc} onClose={() => setPrintDoc(null)} title="Stampa Vendita" documentName={`vendita_${printDoc.id}`}>
                     <PrintableSaleQuote 
                         doc={printDoc} 
-                        customer={yearData.customers.find(c => c.id === c.id === printDoc.customerId)!} 
+                        customer={yearData.customers.find(c => c.id === printDoc.customerId)!} 
                         allVariants={allVariants}
                         companyInfo={settings.companyInfo}
                     />
