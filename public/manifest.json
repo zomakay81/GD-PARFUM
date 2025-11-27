@@ -1,0 +1,21 @@
+{
+  "short_name": "GD-Parfum",
+  "name": "GD-Parfum",
+  "description": "Un'applicazione per gestire una profumeria professionale",
+  "icons": [
+    {
+      "src": "public/icon.png", 
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "public/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#111714",
+  "background_color": "#111714"
+}
