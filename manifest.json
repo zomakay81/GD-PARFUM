@@ -4,12 +4,12 @@
   "description": "Un'applicazione per gestire una profumeria professionale",
   "icons": [
     {
-      "src": "public/icon.png", 
+      "src": "/icon.png", 
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "public/icon.png",
+      "src": "/icon.png",
       "type": "image/png",
       "sizes": "512x512"
     }
