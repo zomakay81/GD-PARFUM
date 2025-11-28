@@ -53,6 +53,7 @@ type Action =
   | { type: 'ADD_SALE'; payload: Omit<Sale, 'id' | 'total' | 'subtotal' | 'type'> }
   | { type: 'DELETE_SALE'; payload: string }
   | { type: 'COLLECT_SALE'; payload: { saleId: string; partnerId: string; date: string; amount: number } }
+  | { type: 'BULK_COLLECT_SALES'; payload: { collections: { saleId: string; amount: number }[]; partnerId: string; date: string } }
   // Azioni Preventivi
   | { type: 'ADD_QUOTE'; payload: Omit<Quote, 'id' | 'total' | 'subtotal' | 'type' | 'status'> }
   | { type: 'DELETE_QUOTE'; payload: string }
@@ -60,6 +61,7 @@ type Action =
   // Azioni Mastro Soci
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
+  | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string } }
   | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement };
 
 
@@ -725,7 +727,11 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             });
             
             // Rimuove tutti i movimenti di incasso collegati a questa vendita
-            yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== saleId);
+            yearData.partnerLedger = yearData.partnerLedger.filter(e => {
+                if (!e.relatedDocumentId) return true;
+                // Gestisce sia ID singolo che lista di ID (incasso cumulativo)
+                return !e.relatedDocumentId.includes(saleId);
+            });
             
             yearData.sales = yearData.sales.filter(s => s.id !== saleId);
         }
@@ -748,10 +754,12 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             });
 
             const customerName = yearData.customers.find(c => c.id === sale.customerId)?.name || 'Sconosciuto';
+            const shortId = sale.id.substring(0, 8).toUpperCase();
+            
             const ledgerEntry: PartnerLedgerEntry = {
                 id: uuidv4(),
                 date: date,
-                description: `Incasso cliente ${customerName} (Parziale/Saldo)`,
+                description: `Incasso cliente ${customerName} (Doc #${shortId})`,
                 amount: amount,
                 partnerId: partnerId,
                 relatedDocumentId: sale.id,
@@ -759,6 +767,57 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             yearData.partnerLedger.push(ledgerEntry);
         }
         break;
+      }
+      
+      case 'BULK_COLLECT_SALES': {
+            const { collections, partnerId, date } = action.payload;
+            let totalAmount = 0;
+            const saleNumbers: string[] = [];
+            let customerName = 'Clienti Vari';
+            const saleIds: string[] = [];
+            
+            // Primo passaggio: identifica il cliente (se tutti uguali) e accumula
+            if (collections.length > 0) {
+                const firstSale = yearData.sales.find(s => s.id === collections[0].saleId);
+                if (firstSale) {
+                     customerName = yearData.customers.find(c => c.id === firstSale.customerId)?.name || 'Sconosciuto';
+                }
+            }
+
+            collections.forEach(col => {
+                const sale = yearData.sales.find(s => s.id === col.saleId);
+                if (sale) {
+                    if (!sale.payments) sale.payments = [];
+                    sale.payments.push({
+                        id: uuidv4(),
+                        date,
+                        amount: col.amount,
+                        partnerId
+                    });
+                    
+                    // Legacy compatibility
+                    sale.collectedByPartnerId = partnerId;
+                    sale.collectionDate = date;
+
+                    totalAmount += col.amount;
+                    saleNumbers.push(`#${sale.id.substring(0, 8).toUpperCase()}`);
+                    saleIds.push(sale.id);
+                }
+            });
+
+            // Crea un'unica voce nel mastro
+            if (totalAmount > 0) {
+                const ledgerEntry: PartnerLedgerEntry = {
+                    id: uuidv4(),
+                    date: date,
+                    description: `Incasso Cumulativo (${collections.length} doc) - ${customerName} - Rif: ${saleNumbers.join(', ')}`,
+                    amount: totalAmount,
+                    partnerId: partnerId,
+                    relatedDocumentId: saleIds.join(','), // Memorizza tutti gli ID separati da virgola
+                };
+                yearData.partnerLedger.push(ledgerEntry);
+            }
+            break;
       }
 
       // --- PREVENTIVI ---
@@ -865,6 +924,39 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                    amount: -amount, // Diminuisce il saldo di chi riceve (era in surplus)
                    partnerId: toPartnerId
                });
+          }
+          break;
+      }
+      case 'TRANSFER_BETWEEN_PARTNERS': {
+          const { fromPartnerId, toPartnerId, amount, date, description } = action.payload;
+          const fromPartner = draft.state.partners.find(p => p.id === fromPartnerId);
+          const toPartner = draft.state.partners.find(p => p.id === toPartnerId);
+
+          if (fromPartner && toPartner) {
+              // Sender: gives money (cash out), so his debt to system decreases (negative transaction if we consider positive = debt)
+              // WAIT: In this system:
+              // - COLLECTION (Money In) = Positive Balance (Debtor to company)
+              // - PAYMENT/EXPENSE (Money Out) = Negative Balance (Creditor to company)
+              
+              // Sender GIVES money to Receiver.
+              // Sender no longer holds the cash -> Balance decreases (Negative entry)
+              yearData.partnerLedger.push({
+                  id: uuidv4(),
+                  date,
+                  description: `Trasferimento a ${toPartner.name}: ${description}`,
+                  amount: -amount,
+                  partnerId: fromPartnerId
+              });
+
+              // Receiver GETS money.
+              // Receiver now holds the cash -> Balance increases (Positive entry)
+              yearData.partnerLedger.push({
+                  id: uuidv4(),
+                  date,
+                  description: `Trasferimento da ${fromPartner.name}: ${description}`,
+                  amount: amount,
+                  partnerId: toPartnerId
+              });
           }
           break;
       }

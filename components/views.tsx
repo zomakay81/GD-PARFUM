@@ -4,11 +4,61 @@ import type { View, Customer, Supplier, Agent, Product, StockLoad, StockLoadItem
 import { useAppContext } from '../state/AppContext';
 import { Button, Input, Modal, ConfirmDialog, Card, Table, Alert } from './ui';
 import { navItems } from './Sidebar';
-import { PlusCircle, Edit, Trash2, Check, X, DollarSign, Layers, ArrowUpDown, Image as ImageIcon, Eye, Euro, Users as UsersIcon, Package as PackageIcon, FileText as FileTextIcon, ListTree, Printer, FileDown, Briefcase, TrendingUp, Wine, Clock, Lock, ShoppingCart, Factory, CircleDollarSign, Calendar, PiggyBank, ArrowRightLeft, Archive, Droplets, Beaker, Barcode, Truck, Wallet, BookOpen, Info, Search, Plus, Filter, CheckSquare, Warehouse, FlaskConical, LayoutGrid, FileStack } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Check, X, DollarSign, Layers, ArrowUpDown, Image as ImageIcon, Eye, Euro, Users as UsersIcon, Package as PackageIcon, FileText as FileTextIcon, ListTree, Printer, FileDown, Briefcase, TrendingUp, Wine, Clock, Lock, ShoppingCart, Factory, CircleDollarSign, Calendar, PiggyBank, ArrowRightLeft, Archive, Droplets, Beaker, Barcode, Truck, Wallet, BookOpen, Info, Search, Plus, Filter, CheckSquare, Warehouse, FlaskConical, LayoutGrid, FileStack, CheckCircle2, UserCheck, Building } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+
+// --- UTILS PER ORDINAMENTO ---
+const SortHeader = ({ label, sortKey, currentSort, onSort }: { label: string, sortKey: string, currentSort: { key: string, direction: string }, onSort: (key: string) => void }) => (
+    <div className="flex items-center cursor-pointer hover:text-primary-600 transition-colors select-none" onClick={() => onSort(sortKey)}>
+        {label}
+        {currentSort.key === sortKey ? (
+            <ArrowUpDown size={14} className={`ml-1 transform transition-transform ${currentSort.direction === 'ascending' ? 'rotate-0' : 'rotate-180'}`} />
+        ) : (
+            <ArrowUpDown size={14} className="ml-1 opacity-20" />
+        )}
+    </div>
+);
+
+const useSortableData = <T,>(items: T[], config = { key: 'date', direction: 'ascending' }) => {
+  const [sortConfig, setSortConfig] = useState(config);
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...items];
+    if (sortConfig !== null) {
+      sortableItems.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (aValue === undefined || aValue === null) aValue = '';
+        if (bValue === undefined || bValue === null) bValue = '';
+
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [items, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  return { items: sortedItems, requestSort, sortConfig };
+};
 
 // --- COMPONENTI PER LA STAMPA ---
 
@@ -782,7 +832,10 @@ const DashboardView: React.FC = () => {
             {/* WIDGETS ROW (Scrollabile orizzontalmente su mobile) */}
             <div className="flex overflow-x-auto gap-4 pb-4 snap-x hide-scrollbar">
                 {/* Sales Widget */}
-                <div className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform">
+                <div 
+                    onClick={() => handleAppClick('sales-history')}
+                    className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer"
+                >
                     <div className="bg-green-100 dark:bg-green-900/30 w-8 h-8 rounded-full flex items-center justify-center text-green-600">
                         <Euro size={16} />
                     </div>
@@ -794,7 +847,10 @@ const DashboardView: React.FC = () => {
                 </div>
 
                 {/* Quotes Widget */}
-                <div className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform">
+                <div 
+                    onClick={() => handleAppClick('quotes-history')}
+                    className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer"
+                >
                      <div className="bg-indigo-100 dark:bg-indigo-900/30 w-8 h-8 rounded-full flex items-center justify-center text-indigo-600">
                         <FileTextIcon size={16} />
                     </div>
@@ -806,7 +862,10 @@ const DashboardView: React.FC = () => {
                 </div>
 
                 {/* Production Widget */}
-                <div className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform">
+                <div 
+                    onClick={() => handleAppClick('cellar')}
+                    className="snap-center shrink-0 w-40 h-40 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer"
+                >
                      <div className="bg-amber-100 dark:bg-amber-900/30 w-8 h-8 rounded-full flex items-center justify-center text-amber-600">
                         <Wine size={16} />
                     </div>
@@ -907,8 +966,15 @@ const DocumentDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, doc:
         return product && variant ? `${product.name} - ${variant.name}` : 'Sconosciuto';
     };
 
+    const isSale = doc.type === 'vendita';
+
+    const getPartnerName = (id?: string) => {
+        if (!id) return 'Sconosciuto';
+        return state.partners.find(p => p.id === id)?.name || 'Sconosciuto';
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Dettaglio Documento #${doc.id.substring(0,8)}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Dettaglio Documento #${doc.id.substring(0,8).toUpperCase()}`}>
             <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div><strong>Data:</strong> {new Date(doc.date).toLocaleDateString()}</div>
@@ -936,6 +1002,32 @@ const DocumentDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, doc:
                         Spedizione: €{doc.shippingCost}
                     </div>
                 ) : null}
+
+                {/* Sezione Pagamenti per Vendite */}
+                {isSale && (
+                    <div className="mt-6 border-t pt-4">
+                        <h4 className="font-semibold text-sm mb-2">Storico Pagamenti (Incassi)</h4>
+                        {((doc as Sale).payments && (doc as Sale).payments!.length > 0) ? (
+                            <ul className="text-sm space-y-1 bg-gray-50 dark:bg-gray-700/50 p-3 rounded">
+                                {(doc as Sale).payments!.map(p => (
+                                    <li key={p.id} className="flex justify-between border-b dark:border-gray-600 last:border-0 pb-1">
+                                        <span>{new Date(p.date).toLocaleDateString()}</span>
+                                        <span>Incassato da: <strong>{getPartnerName(p.partnerId)}</strong></span>
+                                        <span className="font-mono font-bold text-green-600">€{p.amount.toFixed(2)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (doc as Sale).collectedByPartnerId ? (
+                            // Legacy support
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Incassato da: <strong>{getPartnerName((doc as Sale).collectedByPartnerId)}</strong> il {new Date((doc as Sale).collectionDate || doc.date).toLocaleDateString()}
+                            </p>
+                        ) : (
+                            <p className="text-sm text-gray-500 italic">Nessun pagamento registrato.</p>
+                        )}
+                    </div>
+                )}
+
                  <div className="flex justify-end pt-4">
                     <Button variant="secondary" onClick={onClose}>Chiudi</Button>
                 </div>
@@ -975,9 +1067,9 @@ const CollectionModal: React.FC<{ isOpen: boolean, onClose: () => void, sale: Sa
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Registra Incasso">
+        <Modal isOpen={isOpen} onClose={onClose} title={`Registra Incasso #${sale.id.substring(0,8).toUpperCase()}`}>
             <div className="space-y-4">
-                <p className="text-sm">Registra un pagamento per la vendita #{sale.id.substring(0,8)}</p>
+                <p className="text-sm">Registra un pagamento per la vendita selezionata.</p>
                 <Input type="number" label="Importo Incassato" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} />
                 <Input type="date" label="Data Incasso" value={date} onChange={e => setDate(e.target.value)} />
                 <div>
@@ -990,6 +1082,151 @@ const CollectionModal: React.FC<{ isOpen: boolean, onClose: () => void, sale: Sa
                 <div className="flex justify-end pt-4">
                     <Button variant="secondary" onClick={onClose}>Annulla</Button>
                     <Button onClick={handleSave} className="ml-2">Salva</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const BulkCollectionModal: React.FC<{ isOpen: boolean, onClose: () => void, sales: Sale[] }> = ({ isOpen, onClose, sales }) => {
+    const { state, dispatch } = useAppContext();
+    const [partnerId, setPartnerId] = useState('');
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // Calcola il totale rimanente da pagare per tutte le vendite selezionate
+    const totalToCollect = useMemo(() => {
+        return sales.reduce((acc, sale) => {
+            const paid = sale.payments ? sale.payments.reduce((sum, p) => sum + p.amount, 0) : (sale.collectedByPartnerId ? sale.total : 0);
+            return acc + Math.max(0, sale.total - paid);
+        }, 0);
+    }, [sales]);
+
+    const handleSave = () => {
+        if (!partnerId) return alert("Seleziona un socio.");
+        
+        const collections = sales.map(sale => {
+            const paid = sale.payments ? sale.payments.reduce((sum, p) => sum + p.amount, 0) : (sale.collectedByPartnerId ? sale.total : 0);
+            const remaining = Math.max(0, sale.total - paid);
+            return { saleId: sale.id, amount: remaining };
+        }).filter(c => c.amount > 0.001); // Filtra importi zero
+
+        if (collections.length > 0) {
+            dispatch({
+                type: 'BULK_COLLECT_SALES',
+                payload: {
+                    collections,
+                    partnerId,
+                    date
+                }
+            });
+        } else {
+            alert("Nessun importo da incassare per le vendite selezionate.");
+        }
+        
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Incasso Multiplo">
+            <div className="space-y-4">
+                <Alert message={`Stai registrando il saldo per ${sales.length} vendite selezionate. Verrà creata un'unica voce nel mastro con il riferimento a tutti i documenti.`} type="info" />
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded text-center">
+                    <p className="text-sm text-gray-500">Totale da Incassare</p>
+                    <p className="text-2xl font-bold text-green-600">€{totalToCollect.toFixed(2)}</p>
+                </div>
+                
+                <div className="text-xs text-gray-500 max-h-20 overflow-y-auto">
+                    <p className="font-semibold mb-1">Documenti inclusi:</p>
+                    <ul className="list-disc pl-4">
+                        {sales.map(s => (
+                            <li key={s.id}>Vendita #{s.id.substring(0,8).toUpperCase()} - €{s.total.toFixed(2)}</li>
+                        ))}
+                    </ul>
+                </div>
+
+                <Input type="date" label="Data Incasso" value={date} onChange={e => setDate(e.target.value)} />
+                <div>
+                    <label className="block text-sm font-medium mb-1">Incassato da (Socio)</label>
+                    <select className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" value={partnerId} onChange={e => setPartnerId(e.target.value)}>
+                        <option value="">Seleziona...</option>
+                        {state.partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex justify-end pt-4">
+                    <Button variant="secondary" onClick={onClose}>Annulla</Button>
+                    <Button onClick={handleSave} className="ml-2">Conferma Incasso Totale</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const PartnerTransferModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
+    const { state, dispatch } = useAppContext();
+    const [fromPartnerId, setFromPartnerId] = useState('');
+    const [toPartnerId, setToPartnerId] = useState('');
+    const [amount, setAmount] = useState(0);
+    const [description, setDescription] = useState('');
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const handleSave = () => {
+        if (!fromPartnerId || !toPartnerId) return alert("Seleziona entrambi i soci.");
+        if (fromPartnerId === toPartnerId) return alert("I soci devono essere diversi.");
+        if (amount <= 0) return alert("Inserisci un importo valido.");
+        if (!description.trim()) return alert("Inserisci una causale.");
+
+        dispatch({
+            type: 'TRANSFER_BETWEEN_PARTNERS',
+            payload: { fromPartnerId, toPartnerId, amount, date, description }
+        });
+        
+        // Reset form
+        setFromPartnerId('');
+        setToPartnerId('');
+        setAmount(0);
+        setDescription('');
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Registra Trasferimento tra Soci">
+            <div className="space-y-4">
+                <Alert message="Registra un passaggio di denaro diretto tra due soci (es. Giroconto incasso)." />
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Da Socio (Paga/Cede)</label>
+                        <select className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" value={fromPartnerId} onChange={e => setFromPartnerId(e.target.value)}>
+                            <option value="">Seleziona...</option>
+                            {state.partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">A Socio (Riceve)</label>
+                        <select className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" value={toPartnerId} onChange={e => setToPartnerId(e.target.value)}>
+                            <option value="">Seleziona...</option>
+                            {state.partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <Input type="number" label="Importo" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} />
+                <Input type="date" label="Data" value={date} onChange={e => setDate(e.target.value)} />
+                
+                <div>
+                    <label className="block text-sm font-medium mb-1">Causale (Obbligatoria)</label>
+                    <textarea 
+                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" 
+                        rows={2}
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        placeholder="Es. Giroconto incasso Cliente Rossi..."
+                    />
+                </div>
+
+                <div className="flex justify-end pt-4">
+                    <Button variant="secondary" onClick={onClose}>Annulla</Button>
+                    <Button onClick={handleSave} className="ml-2">Registra Movimento</Button>
                 </div>
             </div>
         </Modal>
@@ -1009,7 +1246,7 @@ const StockLoadDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, loa
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Dettaglio Carico #${load.id.substring(0,8)}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Dettaglio Carico #${load.id.substring(0,8).toUpperCase()}`}>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div><strong>Data:</strong> {new Date(load.date).toLocaleDateString()}</div>
@@ -1131,7 +1368,7 @@ const DocumentEditor: React.FC<{ type: 'sale' | 'quote' }> = ({ type }) => {
             date, 
             customerId, 
             items, 
-            vatApplied,
+            vatApplied, 
             discountValue,
             discountType,
             shippingCost
@@ -1216,69 +1453,52 @@ const DocumentEditor: React.FC<{ type: 'sale' | 'quote' }> = ({ type }) => {
 };
 const NewSaleView = () => <DocumentEditor type="sale" />;
 const NewQuoteView = () => <DocumentEditor type="quote" />;
-const QuotesHistoryView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const yearData = state[settings.currentYear]; const [viewDoc, setViewDoc] = useState<Quote | null>(null); const getCustomerName = (id: string) => yearData.customers.find(c => c.id === id)?.name || 'N/A'; return ( <Card title="Storico Preventivi"> <Table headers={["Data", "Cliente", "Totale", "Stato", "Azioni"]}> {yearData.quotes.map(q => ( <tr key={q.id}> <td className="px-6 py-4">{new Date(q.date).toLocaleDateString()}</td> <td className="px-6 py-4">{getCustomerName(q.customerId)}</td> <td className="px-6 py-4">€{q.total.toFixed(2)}</td> <td className="px-6 py-4">{q.status}</td> <td className="px-6 py-4 space-x-2"><Button variant="ghost" size="sm" onClick={() => setViewDoc(q)}><Eye size={16} /></Button>{q.status === 'aperto' && (<Button variant="ghost" size="sm" onClick={() => { if(confirm("Convertire in vendita?")) dispatch({ type: 'CONVERT_QUOTE_TO_SALE', payload: q.id }) }} title="Converti in Vendita"><Check size={16} /></Button>)}<Button variant="ghost" size="sm" className="text-red-500" onClick={() => { if(confirm("Eliminare?")) dispatch({ type: 'DELETE_QUOTE', payload: q.id }) }}><Trash2 size={16} /></Button></td> </tr> ))} </Table> <DocumentDetailModal isOpen={!!viewDoc} onClose={() => setViewDoc(null)} doc={viewDoc} /> </Card> ); };
-const CustomersView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const data = state[settings.currentYear]; const [isModalOpen, setModalOpen] = useState(false); const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null); const [isConfirmOpen, setConfirmOpen] = useState(false); const [deletingId, setDeletingId] = useState<string | null>(null); const openModal = (customer: Customer | null = null) => { setEditingCustomer(customer); setModalOpen(true); }; const handleDeleteClick = (id: string) => { setDeletingId(id); setConfirmOpen(true); }; const confirmDelete = () => { if (deletingId) { dispatch({ type: 'DELETE_CUSTOMER', payload: deletingId }); } setConfirmOpen(false); setDeletingId(null); }; const getAgentName = (agentId?: string) => { if (!agentId) return 'N/A'; return data.agents.find(a => a.id === agentId)?.name || 'Sconosciuto'; }; return ( <Card title="Gestione Clienti"> <div className="flex justify-end mb-4"> <Button onClick={() => openModal()}><PlusCircle className="mr-2 h-4 w-4" /> Aggiungi Cliente</Button> </div> <Table headers={["Nome", "Città", "Telefono", "Email", "Agente", "Azioni"]}> {data.customers.map(customer => ( <tr key={customer.id}> <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{customer.name}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{customer.city}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{customer.phone}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{customer.email}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{getAgentName(customer.agentId)}</td> <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2"> <Button variant="ghost" size="sm" onClick={() => openModal(customer)}><Edit size={16} /></Button> <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(customer.id)}><Trash2 size={16} /></Button> </td> </tr> ))} </Table> <CustomerForm isOpen={isModalOpen} onClose={() => setModalOpen(false)} customer={editingCustomer} agents={data.agents} /> <ConfirmDialog isOpen={isConfirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmDelete} title="Conferma Eliminazione" message="Sei sicuro di voler eliminare questo cliente?" /> </Card> ); };
-const CustomerForm: React.FC<{ isOpen: boolean, onClose: () => void, customer: Customer | null, agents: Agent[] }> = ({ isOpen, onClose, customer, agents }) => { const { dispatch } = useAppContext(); const [formData, setFormData] = useState<Omit<Customer, 'id'>>({ name: '', address: '', city: '', zip: '', province: '', phone: '', email: '', vatNumber: '', sdi: '', agentId: '' }); React.useEffect(() => { if (customer) { setFormData(customer); } else { setFormData({ name: '', address: '', city: '', zip: '', province: '', phone: '', email: '', vatNumber: '', sdi: '', agentId: '' }); } }, [customer, isOpen]); const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { setFormData({ ...formData, [e.target.name]: e.target.value }); }; const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (customer) { dispatch({ type: 'UPDATE_CUSTOMER', payload: { ...formData, id: customer.id } }); } else { dispatch({ type: 'ADD_CUSTOMER', payload: formData }); } onClose(); }; return ( <Modal isOpen={isOpen} onClose={onClose} title={customer ? "Modifica Cliente" : "Nuovo Cliente"}> <form onSubmit={handleSubmit} className="space-y-4"> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <Input label="Nome" name="name" value={formData.name} onChange={handleChange} required /> <Input label="Indirizzo" name="address" value={formData.address} onChange={handleChange} /> <Input label="Città" name="city" value={formData.city} onChange={handleChange} /> <Input label="CAP" name="zip" value={formData.zip} onChange={handleChange} /> <Input label="Provincia" name="province" value={formData.province} onChange={handleChange} /> <Input label="Telefono" name="phone" value={formData.phone} onChange={handleChange} /> <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} /> <Input label="Partita IVA" name="vatNumber" value={formData.vatNumber} onChange={handleChange} /> <Input label="Codice SDI" name="sdi" value={formData.sdi} onChange={handleChange} /> <div> <label htmlFor="agentId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agente</label> <select name="agentId" id="agentId" value={formData.agentId || ''} onChange={handleChange} className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-800"> <option value="">Nessun agente</option> {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)} </select> </div> </div> <div className="flex justify-end space-x-2 pt-4"> <Button type="button" variant="secondary" onClick={onClose}>Annulla</Button> <Button type="submit">Salva</Button> </div> </form> </Modal> ); };
+const QuotesHistoryView: React.FC = () => { 
+    const { state, settings, dispatch } = useAppContext(); 
+    const yearData = state[settings.currentYear]; 
+    const [viewDoc, setViewDoc] = useState<Quote | null>(null); 
+    
+    // Preparazione dati con lookup per ordinamento
+    const mappedQuotes = useMemo(() => {
+        return yearData.quotes.map(q => ({
+            ...q,
+            customerName: yearData.customers.find(c => c.id === q.customerId)?.name || 'N/A',
+            shortId: q.id.substring(0,8).toUpperCase()
+        }));
+    }, [yearData.quotes, yearData.customers]);
 
-const SuppliersView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const data = state[settings.currentYear]; const [isModalOpen, setModalOpen] = useState(false); const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null); const [isConfirmOpen, setConfirmOpen] = useState(false); const [deletingId, setDeletingId] = useState<string | null>(null); const openModal = (supplier: Supplier | null = null) => { setEditingSupplier(supplier); setModalOpen(true); }; const handleDeleteClick = (id: string) => { setDeletingId(id); setConfirmOpen(true); }; const confirmDelete = () => { if (deletingId) { dispatch({ type: 'DELETE_SUPPLIER', payload: deletingId }); } setConfirmOpen(false); setDeletingId(null); }; return ( <Card title="Gestione Fornitori"> <div className="flex justify-end mb-4"> <Button onClick={() => openModal()}><PlusCircle className="mr-2 h-4 w-4" /> Aggiungi Fornitore</Button> </div> <Table headers={["Nome", "Città", "Telefono", "Email", "P.IVA", "Azioni"]}> {data.suppliers.map(supplier => ( <tr key={supplier.id}> <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{supplier.name}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{supplier.city}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{supplier.phone}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{supplier.email}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{supplier.vatNumber}</td> <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2"> <Button variant="ghost" size="sm" onClick={() => openModal(supplier)}><Edit size={16} /></Button> <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(supplier.id)}><Trash2 size={16} /></Button> </td> </tr> ))} </Table> <SupplierForm isOpen={isModalOpen} onClose={() => setModalOpen(false)} supplier={editingSupplier} /> <ConfirmDialog isOpen={isConfirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmDelete} title="Conferma Eliminazione" message="Sei sicuro di voler eliminare questo fornitore?" /> </Card> ); };
-const SupplierForm: React.FC<{ isOpen: boolean, onClose: () => void, supplier: Supplier | null }> = ({ isOpen, onClose, supplier }) => { const { dispatch } = useAppContext(); const [formData, setFormData] = useState<Omit<Supplier, 'id'>>({ name: '', address: '', city: '', phone: '', email: '', vatNumber: '' }); React.useEffect(() => { if (supplier) { setFormData(supplier); } else { setFormData({ name: '', address: '', city: '', phone: '', email: '', vatNumber: '' }); } }, [supplier, isOpen]); const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => { setFormData({ ...formData, [e.target.name]: e.target.value }); }; const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (supplier) { dispatch({ type: 'UPDATE_SUPPLIER', payload: { ...formData, id: supplier.id } }); } else { dispatch({ type: 'ADD_SUPPLIER', payload: formData }); } onClose(); }; return ( <Modal isOpen={isOpen} onClose={onClose} title={supplier ? "Modifica Fornitore" : "Nuovo Fornitore"}> <form onSubmit={handleSubmit} className="space-y-4"> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <Input label="Nome" name="name" value={formData.name} onChange={handleChange} required /> <Input label="Indirizzo" name="address" value={formData.address} onChange={handleChange} /> <Input label="Città" name="city" value={formData.city} onChange={handleChange} /> <Input label="Telefono" name="phone" value={formData.phone} onChange={handleChange} /> <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} /> <Input label="Partita IVA" name="vatNumber" value={formData.vatNumber} onChange={handleChange} /> </div> <div className="flex justify-end space-x-2 pt-4"> <Button type="button" variant="secondary" onClick={onClose}>Annulla</Button> <Button type="submit">Salva</Button> </div> </form> </Modal> ); };
-const AgentsView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const data = state[settings.currentYear]; const [isModalOpen, setModalOpen] = useState(false); const [editingAgent, setEditingAgent] = useState<Agent | null>(null); const [isConfirmOpen, setConfirmOpen] = useState(false); const [deletingId, setDeletingId] = useState<string | null>(null); const openModal = (agent: Agent | null = null) => { setEditingAgent(agent); setModalOpen(true); }; const handleDeleteClick = (id: string) => { setDeletingId(id); setConfirmOpen(true); }; const confirmDelete = () => { if (deletingId) { dispatch({ type: 'DELETE_AGENT', payload: deletingId }); } setConfirmOpen(false); setDeletingId(null); }; return ( <Card title="Gestione Agenti"> <div className="flex justify-end mb-4"> <Button onClick={() => openModal()}><PlusCircle className="mr-2 h-4 w-4" /> Aggiungi Agente</Button> </div> <Table headers={["Nome", "Città", "Telefono", "Clienti Associati", "Azioni"]}> {data.agents.map(agent => ( <tr key={agent.id}> <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{agent.name}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{agent.city}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{agent.phone}</td> <td className="px-6 py-4 whitespace-nowrap text-sm">{agent.associatedClients}</td> <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2"> <Button variant="ghost" size="sm" onClick={() => openModal(agent)}><Edit size={16} /></Button> <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(agent.id)}><Trash2 size={16} /></Button> </td> </tr> ))} </Table> <AgentForm isOpen={isModalOpen} onClose={() => setModalOpen(false)} agent={editingAgent} /> <ConfirmDialog isOpen={isConfirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmDelete} title="Conferma Eliminazione" message="Sei sicuro di voler eliminare questo agente? I clienti associati verranno scollegati." /> </Card> ); };
-const AgentForm: React.FC<{ isOpen: boolean, onClose: () => void, agent: Agent | null }> = ({ isOpen, onClose, agent }) => { const { dispatch } = useAppContext(); const [formData, setFormData] = useState<Omit<Agent, 'id' | 'associatedClients'>>({ name: '', city: '', phone: '' }); React.useEffect(() => { if (agent) { setFormData({name: agent.name, city: agent.city, phone: agent.phone}); } else { setFormData({ name: '', city: '', phone: '' }); } }, [agent, isOpen]); const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => { setFormData({ ...formData, [e.target.name]: e.target.value }); }; const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (agent) { dispatch({ type: 'UPDATE_AGENT', payload: { ...formData, id: agent.id, associatedClients: agent.associatedClients } }); } else { dispatch({ type: 'ADD_AGENT', payload: formData }); } onClose(); }; return ( <Modal isOpen={isOpen} onClose={onClose} title={agent ? "Modifica Agente" : "Nuovo Agente"}> <form onSubmit={handleSubmit} className="space-y-4"> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <Input label="Nome" name="name" value={formData.name} onChange={handleChange} required /> <Input label="Città" name="city" value={formData.city} onChange={handleChange} /> <Input label="Telefono" name="phone" value={formData.phone} onChange={handleChange} /> </div> <div className="flex justify-end space-x-2 pt-4"> <Button type="button" variant="secondary" onClick={onClose}>Annulla</Button> <Button type="submit">Salva</Button> </div> </form> </Modal> ); };
+    const { items: sortedQuotes, requestSort, sortConfig } = useSortableData(mappedQuotes);
 
-const StockLoadHistoryView: React.FC = () => {
-    const { state, settings, dispatch } = useAppContext();
-    const yearData = state[settings.currentYear];
-    const [viewLoad, setViewLoad] = useState<StockLoad | null>(null);
-    const [editLoad, setEditLoad] = useState<StockLoad | null>(null);
-    const [printLoad, setPrintLoad] = useState<StockLoad | null>(null);
-
-    const getSupplierName = (id?: string) => id ? (yearData.suppliers.find(s => s.id === id)?.name || 'N/A') : 'Deposito / Interno';
-    const getPartnerName = (id?: string) => id ? (state.partners.find(p => p.id === id)?.name || 'N/A') : '-';
-
-    const allVariants = useMemo(() => {
-        return yearData.productVariants.map(variant => {
-            const product = yearData.products.find(p => p.id === variant.productId);
-            return { ...variant, productName: product?.name || 'N/A' };
-        });
-    }, [yearData]);
-
-    return (
-        <Card title="Storico Carichi Magazzino">
-            <Table headers={["Data", "Fornitore", "Pagato da", "Totale", "Articoli", "Azioni"]}>
-                {yearData.stockLoads.map(load => (
-                    <tr key={load.id}>
-                        <td className="px-6 py-4">{new Date(load.date).toLocaleDateString()}</td>
-                        <td className="px-6 py-4">{getSupplierName(load.supplierId)}</td>
-                        <td className="px-6 py-4">{getPartnerName(load.paidByPartnerId)}</td>
-                        <td className="px-6 py-4">€{load.total.toFixed(2)}</td>
-                        <td className="px-6 py-4">{load.items.length}</td>
-                        <td className="px-6 py-4 space-x-2 flex">
-                            <Button variant="ghost" size="sm" onClick={() => setViewLoad(load)} title="Vedi Dettagli"><Eye size={16} /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => setEditLoad(load)} title="Modifica Intestazione"><Edit size={16} /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => setPrintLoad(load)} title="Stampa"><Printer size={16} /></Button>
-                            <Button variant="ghost" size="sm" className="text-red-500" onClick={() => { 
-                                if(confirm("Attenzione: Eliminando il carico verranno rimosse le quantità dal magazzino. Se i prodotti sono già stati venduti, la giacenza potrebbe diventare negativa. Continuare?")) 
-                                    dispatch({ type: 'DELETE_STOCK_LOAD', payload: load.id }) 
-                            }} title="Elimina"><Trash2 size={16} /></Button>
-                        </td>
-                    </tr>
-                ))}
-            </Table>
-            <StockLoadDetailModal isOpen={!!viewLoad} onClose={() => setViewLoad(null)} load={viewLoad} />
-            <EditStockLoadModal isOpen={!!editLoad} onClose={() => setEditLoad(null)} load={editLoad} />
-             {printLoad && (
-                <PrintModal isOpen={!!printLoad} onClose={() => setPrintLoad(null)} title="Stampa Carico" documentName={`carico_${printLoad.id}`}>
-                    <PrintableStockLoad 
-                        load={printLoad} 
-                        supplier={printLoad.supplierId ? yearData.suppliers.find(s => s.id === printLoad.supplierId) : undefined}
-                        allVariants={allVariants}
-                        companyInfo={settings.companyInfo}
-                    />
-                </PrintModal>
-            )}
-        </Card>
-    );
-}
+    return ( 
+        <Card title="Storico Preventivi"> 
+            <Table headers={[
+                <SortHeader label="Numero / Data" sortKey="date" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Cliente" sortKey="customerName" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Totale" sortKey="total" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Stato" sortKey="status" currentSort={sortConfig} onSort={requestSort} />,
+                "Azioni"
+            ]}> 
+                {sortedQuotes.map(q => ( 
+                    <tr key={q.id}> 
+                        <td className="px-6 py-4">
+                            <span className="block font-mono font-bold text-xs text-gray-500">#{q.shortId}</span>
+                            <span>{new Date(q.date).toLocaleDateString()}</span>
+                        </td> 
+                        <td className="px-6 py-4">{q.customerName}</td> 
+                        <td className="px-6 py-4">€{q.total.toFixed(2)}</td> 
+                        <td className="px-6 py-4">{q.status}</td> 
+                        <td className="px-6 py-4 space-x-2">
+                            <Button variant="ghost" size="sm" onClick={() => setViewDoc(q)}><Eye size={16} /></Button>
+                            {q.status === 'aperto' && (<Button variant="ghost" size="sm" onClick={() => { if(confirm("Convertire in vendita?")) dispatch({ type: 'CONVERT_QUOTE_TO_SALE', payload: q.id }) }} title="Converti in Vendita"><Check size={16} /></Button>)}
+                            <Button variant="ghost" size="sm" className="text-red-500" onClick={() => { if(confirm("Eliminare?")) dispatch({ type: 'DELETE_QUOTE', payload: q.id }) }}><Trash2 size={16} /></Button>
+                        </td> 
+                    </tr> 
+                ))} 
+            </Table> 
+            <DocumentDetailModal isOpen={!!viewDoc} onClose={() => setViewDoc(null)} doc={viewDoc} /> 
+        </Card> 
+    ); 
+};
 
 // SalesHistoryView
 const SalesHistoryView: React.FC = () => {
@@ -1287,6 +1507,10 @@ const SalesHistoryView: React.FC = () => {
     const [viewDoc, setViewDoc] = useState<Sale | null>(null);
     const [printDoc, setPrintDoc] = useState<Sale | null>(null);
     const [collectionSale, setCollectionSale] = useState<Sale | null>(null);
+    
+    // Stato per la selezione multipla
+    const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
+    const [isBulkCollectionOpen, setBulkCollectionOpen] = useState(false);
     
     const getCustomerName = (id: string) => yearData.customers.find(c => c.id === id)?.name || 'N/A';
     
@@ -1306,16 +1530,93 @@ const SalesHistoryView: React.FC = () => {
         return { status: 'Non Pagato', color: 'text-red-500', icon: X };
     };
 
+    // Mappatura per sorting
+    const mappedSales = useMemo(() => {
+        return yearData.sales.map(s => {
+            const { status } = getPaymentStatus(s);
+            return {
+                ...s,
+                customerName: getCustomerName(s.customerId),
+                paymentStatusText: status,
+                shortId: s.id.substring(0,8).toUpperCase()
+            };
+        });
+    }, [yearData.sales, yearData.customers]);
+
+    const { items: sortedSales, requestSort, sortConfig } = useSortableData(mappedSales);
+
+    // Gestione Selezione
+    const toggleSaleSelection = (id: string) => {
+        const newSet = new Set(selectedSales);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedSales(newSet);
+    };
+
+    const handleBulkClick = () => {
+        const selectedIds = Array.from(selectedSales);
+        const sales = yearData.sales.filter(s => selectedIds.includes(s.id));
+        
+        if (sales.length === 0) return;
+
+        // Check if all belong to same customer
+        const customerId = sales[0].customerId;
+        if (!sales.every(s => s.customerId === customerId)) {
+            alert("Per effettuare un incasso cumulativo, seleziona vendite dello stesso cliente.");
+            return;
+        }
+
+        setBulkCollectionOpen(true);
+    };
+
+    const bulkCollectionSales = useMemo(() => {
+         return yearData.sales.filter(s => selectedSales.has(s.id));
+    }, [yearData.sales, selectedSales]);
+
     return (
         <Card title="Storico Vendite">
-            <Table headers={["Data", "Cliente", "Totale", "Stato Pagamento", "Azioni"]}>
-                {yearData.sales.map(s => {
+            <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-gray-500">Gestisci lo storico e i pagamenti delle vendite.</p>
+                {selectedSales.size > 0 && (
+                    <Button onClick={handleBulkClick} className="bg-green-600 hover:bg-green-700 animate-fade-in">
+                        <CircleDollarSign className="mr-2" size={18} /> Incassa Selezionati ({selectedSales.size})
+                    </Button>
+                )}
+            </div>
+            
+            <Table headers={[
+                <div className="w-8 text-center"><CheckSquare size={16} /></div>, // Checkbox header
+                <SortHeader label="Numero / Data" sortKey="date" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Cliente" sortKey="customerName" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Totale" sortKey="total" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Stato Pagamento" sortKey="paymentStatusText" currentSort={sortConfig} onSort={requestSort} />,
+                "Azioni"
+            ]}>
+                {sortedSales.map(s => {
                     const statusInfo = getPaymentStatus(s);
                     const StatusIcon = statusInfo.icon;
+                    const isFullyPaid = statusInfo.status === 'Pagato';
+
                     return (
-                        <tr key={s.id}>
-                            <td className="px-6 py-4">{new Date(s.date).toLocaleDateString()}</td>
-                            <td className="px-6 py-4">{getCustomerName(s.customerId)}</td>
+                        <tr key={s.id} className={selectedSales.has(s.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
+                            <td className="px-6 py-4 text-center">
+                                {!isFullyPaid && (
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedSales.has(s.id)} 
+                                        onChange={() => toggleSaleSelection(s.id)}
+                                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                    />
+                                )}
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className="block font-mono font-bold text-xs text-gray-500">#{s.shortId}</span>
+                                <span>{new Date(s.date).toLocaleDateString()}</span>
+                            </td>
+                            <td className="px-6 py-4">{s.customerName}</td>
                             <td className="px-6 py-4">€{s.total.toFixed(2)}</td>
                             <td className="px-6 py-4">
                                 <span className={`flex items-center font-semibold ${statusInfo.color}`}>
@@ -1323,7 +1624,7 @@ const SalesHistoryView: React.FC = () => {
                                 </span>
                             </td>
                             <td className="px-6 py-4 space-x-2 flex">
-                                 {statusInfo.status !== 'Pagato' && (
+                                 {!isFullyPaid && (
                                      <Button variant="ghost" size="sm" onClick={() => setCollectionSale(s)} title="Registra Incasso" className="text-green-600 hover:bg-green-100">
                                          <CircleDollarSign size={18} />
                                      </Button>
@@ -1338,6 +1639,11 @@ const SalesHistoryView: React.FC = () => {
             </Table>
             <DocumentDetailModal isOpen={!!viewDoc} onClose={() => setViewDoc(null)} doc={viewDoc} />
             <CollectionModal isOpen={!!collectionSale} onClose={() => setCollectionSale(null)} sale={collectionSale} />
+            <BulkCollectionModal 
+                isOpen={isBulkCollectionOpen} 
+                onClose={() => { setBulkCollectionOpen(false); setSelectedSales(new Set()); }} 
+                sales={bulkCollectionSales} 
+            />
             {printDoc && (
                 <PrintModal isOpen={!!printDoc} onClose={() => setPrintDoc(null)} title="Stampa Vendita" documentName={`vendita_${printDoc.id}`}>
                     <PrintableSaleQuote 
@@ -1609,7 +1915,283 @@ interface ProductDetailCatalogModalProps {
 
 const ProductDetailCatalogModal: React.FC<ProductDetailCatalogModalProps> = ({ isOpen, onClose, product, variants }) => { const { state, settings } = useAppContext(); const batches = state[settings.currentYear].inventoryBatches; const [activeImage, setActiveImage] = useState<string | null>(product.imageUrl || null); React.useEffect(() => { setActiveImage(product.imageUrl || null); }, [product]); const galleryImages = useMemo(() => { const imgs = []; if (product.imageUrl) imgs.push({ src: product.imageUrl, type: 'Copertina' }); if (product.additionalImages) product.additionalImages.forEach(img => imgs.push({ src: img, type: 'Galleria' })); variants.forEach(v => { if (v.imageUrl) imgs.push({ src: v.imageUrl, type: `Variante ${v.name}` }); }); return imgs; }, [product, variants]); const getBatchInfo = (variantId: string) => { const variantBatches = batches.filter(b => b.variantId === variantId && b.currentQuantity > 0); if (variantBatches.length === 0) return { status: 'Non disponibile', color: 'text-gray-400' }; const macerating = variantBatches.some(b => b.status === 'macerating'); if (macerating) { const minDate = variantBatches .filter(b => b.status === 'macerating' && b.macerationEndDate) .map(b => new Date(b.macerationEndDate!).getTime()) .sort()[0]; const readyDate = minDate ? new Date(minDate).toLocaleDateString() : 'N/D'; return { status: `In arrivo (Macerazione termina il ${readyDate})`, color: 'text-amber-600' }; } return { status: 'Disponibile', color: 'text-green-600' }; }; return ( <Modal isOpen={isOpen} onClose={onClose} title={product.name}> <div className="flex flex-col md:flex-row gap-6"> <div className="w-full md:w-1/3"> <div className="w-full h-64 md:h-80 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden mb-2"> {activeImage ? ( <img src={activeImage} alt={product.name} className="w-full h-full object-contain" /> ) : ( <ImageIcon size={64} /> )} </div> {galleryImages.length > 1 && ( <div className="flex overflow-x-auto space-x-2 pb-2"> {galleryImages.map((img, idx) => ( <img key={idx} src={img.src} alt={img.type} className={`h-16 w-16 object-cover rounded cursor-pointer border-2 ${activeImage === img.src ? 'border-primary-500' : 'border-transparent'}`} onClick={() => setActiveImage(img.src)} title={img.type} /> ))} </div> )} </div> <div className="w-full md:w-2/3 space-y-6"> <div> <div className="flex justify-between items-start"> <div> {product.brand && <span className="text-sm font-bold text-gray-500 uppercase block">{product.brand}</span>} <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{product.name}</h3> </div> {product.code && <span className="text-xs font-mono text-gray-500 border px-2 py-1 rounded bg-gray-50 dark:bg-gray-800">#{product.code}</span>} </div> <span className="inline-block bg-primary-100 text-primary-800 text-xs px-2 py-1 rounded-full mt-2">{product.category}</span> </div> {product.description && ( <p className="text-gray-600 dark:text-gray-300 italic">{product.description}</p> )} {product.olfactoryPyramid && (product.olfactoryPyramid.head || product.olfactoryPyramid.heart || product.olfactoryPyramid.base) && ( <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border dark:border-gray-600"> <h4 className="font-semibold mb-2 flex items-center text-sm uppercase text-gray-500"><Layers size={14} className="mr-2"/> Piramide Olfattiva</h4> <div className="space-y-2 text-sm"> {product.olfactoryPyramid.head && ( <div className="flex"><span className="w-16 font-bold text-gray-500">Testa:</span> <span>{product.olfactoryPyramid.head}</span></div> )} {product.olfactoryPyramid.heart && ( <div className="flex"><span className="w-16 font-bold text-gray-500">Cuore:</span> <span>{product.olfactoryPyramid.heart}</span></div> )} {product.olfactoryPyramid.base && ( <div className="flex"><span className="w-16 font-bold text-gray-500">Fondo:</span> <span>{product.olfactoryPyramid.base}</span></div> )} </div> </div> )} {(product.essenceCode || product.ifraLimit) && ( <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900 grid grid-cols-2 gap-4"> {product.essenceCode && ( <div> <h5 className="font-semibold text-xs uppercase text-blue-500 flex items-center mb-1"><FlaskConical size={12} className="mr-1"/> Codice Essenza</h5> <p className="font-mono text-sm">{product.essenceCode}</p> </div> )} {product.ifraLimit && ( <div> <h5 className="font-semibold text-xs uppercase text-blue-500 flex items-center mb-1"><Info size={12} className="mr-1"/> Limite IFRA</h5> <p className="font-bold text-sm">{product.ifraLimit.toFixed(2)}%</p> </div> )} </div> )} <div> <h4 className="font-semibold mb-2">Formati Disponibili</h4> <Table headers={["Formato", "Capacità", "Prezzo", "Disponibilità"]}> {variants.map(v => { const info = getBatchInfo(v.id); return ( <tr key={v.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => { if(v.imageUrl) setActiveImage(v.imageUrl) }}> <td className="px-4 py-2 font-medium">{v.name}</td> <td className="px-4 py-2 text-xs text-gray-500">{v.capacity ? `${v.capacity} ${product.unit}` : '-'}</td> <td className="px-4 py-2">€{v.salePrice.toFixed(2)}</td> <td className={`px-4 py-2 font-bold text-xs ${info.color}`}>{info.status}</td> </tr> ); })} </Table> {variants.length === 0 && <p className="text-gray-500 italic">Nessun formato disponibile per la vendita.</p>} <p className="text-xs text-gray-400 mt-2">* Clicca su un formato per vedere la foto specifica (se presente).</p> </div> </div> </div> <div className="flex justify-end pt-6 mt-4 border-t dark:border-gray-700"> <Button variant="secondary" onClick={onClose}>Chiudi</Button> </div> </Modal> ); };
 const CatalogView: React.FC = () => { const { state, settings } = useAppContext(); const { products, productVariants, categories } = state[settings.currentYear]; const [selectedCategory, setSelectedCategory] = useState('all'); const [searchTerm, setSearchTerm] = useState(''); const [selectedProduct, setSelectedProduct] = useState<Product | null>(null); const [isPrintModalOpen, setPrintModalOpen] = useState(false); const salesCategories = useMemo(() => categories.filter(c => !c.isComponent), [categories]); const catalogProducts = useMemo(() => { let filtered = products.filter(p => { const cat = categories.find(c => c.name === p.category); return cat && !cat.isComponent; }); if (selectedCategory !== 'all') { filtered = filtered.filter(p => p.category === selectedCategory); } if (searchTerm) { const lowercased = searchTerm.toLowerCase(); filtered = filtered.filter(p => p.name.toLowerCase().includes(lowercased) || p.brand?.toLowerCase().includes(lowercased) || p.code?.toLowerCase().includes(lowercased)); } return filtered.map(p => ({ ...p, variants: productVariants.filter(v => v.productId === p.id) })); }, [products, categories, selectedCategory, searchTerm, productVariants]); return ( <Card title="Catalogo Prodotti"> <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"> <div className="flex gap-4 w-full md:w-auto"> <Input placeholder="Cerca prodotto, brand o codice..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="max-w-xs" /> <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="block w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-800" > <option value="all">Tutti i Prodotti</option> {salesCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> </div> <Button onClick={() => setPrintModalOpen(true)} variant="secondary"><Printer className="mr-2 h-4 w-4"/> Stampa Catalogo</Button> </div> <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"> {catalogProducts.map(product => { const minPrice = product.variants.length > 0 ? Math.min(...product.variants.map(v => v.salePrice)) : 0; const maxPrice = product.variants.length > 0 ? Math.max(...product.variants.map(v => v.salePrice)) : 0; const priceString = minPrice === maxPrice ? `€${minPrice.toFixed(2)}` : `€${minPrice.toFixed(2)} - €${maxPrice.toFixed(2)}`; return ( <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer overflow-hidden flex flex-col group" > <div className="h-48 w-full bg-gray-100 dark:bg-gray-700 relative overflow-hidden"> {product.imageUrl ? ( <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /> ) : ( <div className="flex items-center justify-center h-full text-gray-400"> <ImageIcon size={48} /> </div> )} <div className="absolute top-2 right-2 bg-white/90 dark:bg-gray-900/90 px-2 py-1 rounded text-xs font-bold shadow-sm"> {product.category} </div> {(product.additionalImages?.length || 0) > 0 && ( <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs flex items-center"> <Layers size={10} className="mr-1"/> +{product.additionalImages!.length} </div> )} </div> <div className="p-4 flex-grow flex flex-col"> <div className="flex justify-between items-start mb-1"> {product.brand && <span className="text-xs font-bold text-gray-500 uppercase">{product.brand}</span>} {product.code && <span className="text-[10px] font-mono text-gray-400 border px-1 rounded">#{product.code}</span>} </div> <h3 className="font-bold text-lg mb-1 text-gray-800 dark:text-gray-100 truncate">{product.name}</h3> <p className="text-primary-600 font-semibold mt-auto">{product.variants.length > 0 ? priceString : 'Non disponibile'}</p> </div> </div> ); })} </div> {catalogProducts.length === 0 && ( <div className="text-center py-12 text-gray-500"> <PackageIcon size={48} className="mx-auto mb-4 opacity-30" /> <p>Nessun prodotto trovato nel catalogo.</p> <p className="text-sm">Assicurati di aver creato prodotti in categorie non marcate come "Componente".</p> </div> )} {selectedProduct && ( <ProductDetailCatalogModal isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} product={selectedProduct} variants={productVariants.filter(v => v.productId === selectedProduct.id)} /> )} <PrintModal isOpen={isPrintModalOpen} onClose={() => setPrintModalOpen(false)} title="Anteprima di Stampa Catalogo" documentName={`catalogo_${new Date().toISOString().split('T')[0]}`}> <PrintableCatalog products={catalogProducts} companyInfo={settings.companyInfo} title={selectedCategory === 'all' ? 'Catalogo Generale' : `Catalogo ${selectedCategory}`} /> </PrintModal> </Card> ); };
-const ProductionView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const { products, productVariants, categories, inventoryBatches } = state[settings.currentYear]; const [isProductSelectorOpen, setProductSelectorOpen] = useState(false); const [formData, setFormData] = useState<{ date: string; finishedProductId: string; quantityProduced: number; macerationDays: number; components: { variantId: string; quantityUsed: number; weightInGrams?: number }[]; productionType: 'finished_sale' | 'bulk_refill'; colorCode: string; colorDrops: number; enableColor: boolean; targetPercentage: number; }>({ date: new Date().toISOString().split('T')[0], finishedProductId: '', quantityProduced: 1, macerationDays: 30, components: [{ variantId: '', quantityUsed: 1, weightInGrams: undefined }], productionType: 'finished_sale', colorCode: '#ffffff', colorDrops: 0, enableColor: false, targetPercentage: 20 }); const useVariantAvailableQuantity = useCallback((variantId: string) => { return inventoryBatches .filter(b => b.variantId === variantId && b.status === 'available') .reduce((sum, b) => sum + b.currentQuantity, 0); }, [inventoryBatches]); const getVariantDisplayName = (variant: ProductVariant) => { const product = products.find(p => p.id === variant.productId); return `${product?.name || 'Prodotto Sconosciuto'} - ${variant.name}`; }; const getProductUnit = (variantId: string) => { const variant = productVariants.find(v => v.id === variantId); const product = products.find(p => p.id === variant?.productId); return product?.unit || 'pz'; }; 
+
+interface ProductionTargetSelectorModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (variantId: string) => void;
+    variants: ProductVariant[];
+    products: Product[];
+    categories: Category[];
+}
+
+const ProductionTargetSelectorModal: React.FC<ProductionTargetSelectorModalProps> = ({ isOpen, onClose, onSelect, variants, products, categories }) => {
+    const [search, setSearch] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedBrand, setSelectedBrand] = useState('all');
+
+    // Extract unique brands from the available finished products
+    const availableBrands = useMemo(() => {
+        const brandSet = new Set<string>();
+        variants.forEach(v => {
+            const p = products.find(prod => prod.id === v.productId);
+            if (p && p.brand) brandSet.add(p.brand);
+        });
+        return Array.from(brandSet).sort();
+    }, [variants, products]);
+
+    // Available categories (only those present in variants)
+    const availableCategories = useMemo(() => {
+         const catSet = new Set<string>();
+         variants.forEach(v => {
+             const p = products.find(prod => prod.id === v.productId);
+             if (p && p.category) catSet.add(p.category);
+         });
+         return Array.from(catSet).sort();
+    }, [variants, products]);
+
+    const filteredVariants = useMemo(() => {
+        return variants.filter(v => {
+            const p = products.find(prod => prod.id === v.productId);
+            if (!p) return false;
+
+            // Filter by Category
+            if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+
+            // Filter by Brand
+            if (selectedBrand !== 'all' && p.brand !== selectedBrand) return false;
+
+            // Filter by Search (Name, Code, Variant Name)
+            const searchLower = search.toLowerCase();
+            return (
+                p.name.toLowerCase().includes(searchLower) ||
+                v.name.toLowerCase().includes(searchLower) ||
+                (p.code && p.code.toLowerCase().includes(searchLower))
+            );
+        });
+    }, [variants, products, search, selectedCategory, selectedBrand]);
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Seleziona Prodotto da Produrre">
+            <div className="flex flex-col h-[70vh]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b dark:border-gray-700">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <Input placeholder="Cerca nome o codice..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 w-full" />
+                    </div>
+                    <div>
+                        <select 
+                            value={selectedCategory} 
+                            onChange={e => setSelectedCategory(e.target.value)} 
+                            className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        >
+                            <option value="all">Tutte le Categorie</option>
+                            {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <select 
+                            value={selectedBrand} 
+                            onChange={e => setSelectedBrand(e.target.value)} 
+                            className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        >
+                            <option value="all">Tutti i Brand</option>
+                            {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Foto</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prodotto</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variante</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredVariants.map(v => {
+                                const p = products.find(prod => prod.id === v.productId);
+                                if (!p) return null;
+                                return (
+                                    <tr 
+                                        key={v.id} 
+                                        onClick={() => { onSelect(v.id); onClose(); }} 
+                                        className="cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                                    >
+                                        <td className="px-4 py-2">
+                                            {p.imageUrl ? (
+                                                <img src={p.imageUrl} alt={p.name} className="h-10 w-10 object-cover rounded" />
+                                            ) : (
+                                                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-gray-400">
+                                                    <ImageIcon size={20} />
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm font-medium">{p.name} <br/> <span className="text-xs text-gray-400">{p.category}</span></td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{p.brand}</td>
+                                        <td className="px-4 py-2 text-sm font-bold">{v.name}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                    {filteredVariants.length === 0 && (
+                        <div className="p-8 text-center text-gray-500">Nessun prodotto trovato con i filtri attuali.</div>
+                    )}
+                </div>
+                <div className="pt-4 mt-4 border-t flex justify-end">
+                    <Button variant="secondary" onClick={onClose}>Chiudi</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+interface ProductionComponentSelectorModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (variantId: string) => void;
+    variants: ProductVariant[];
+    products: Product[];
+    categories: Category[];
+    inventoryBatches: InventoryBatch[];
+}
+
+const ProductionComponentSelectorModal: React.FC<ProductionComponentSelectorModalProps> = ({ isOpen, onClose, onSelect, variants, products, categories, inventoryBatches }) => {
+    const [search, setSearch] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedBrand, setSelectedBrand] = useState('all');
+
+    // Extract unique brands
+    const availableBrands = useMemo(() => {
+        const brandSet = new Set<string>();
+        variants.forEach(v => {
+            const p = products.find(prod => prod.id === v.productId);
+            if (p && p.brand) brandSet.add(p.brand);
+        });
+        return Array.from(brandSet).sort();
+    }, [variants, products]);
+
+    // Available categories
+    const availableCategories = useMemo(() => {
+         const catSet = new Set<string>();
+         variants.forEach(v => {
+             const p = products.find(prod => prod.id === v.productId);
+             if (p && p.category) catSet.add(p.category);
+         });
+         return Array.from(catSet).sort();
+    }, [variants, products]);
+
+    // Helper to get available quantity
+    const getAvailableQuantity = (variantId: string) => {
+        return inventoryBatches
+            .filter(b => b.variantId === variantId && b.status === 'available')
+            .reduce((sum, b) => sum + b.currentQuantity, 0);
+    };
+
+    const filteredVariants = useMemo(() => {
+        return variants.filter(v => {
+            const p = products.find(prod => prod.id === v.productId);
+            if (!p) return false;
+
+            if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+            if (selectedBrand !== 'all' && p.brand !== selectedBrand) return false;
+
+            const searchLower = search.toLowerCase();
+            return (
+                p.name.toLowerCase().includes(searchLower) ||
+                v.name.toLowerCase().includes(searchLower) ||
+                (p.code && p.code.toLowerCase().includes(searchLower))
+            );
+        });
+    }, [variants, products, search, selectedCategory, selectedBrand]);
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Seleziona Ingrediente / Componente">
+            <div className="flex flex-col h-[70vh]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b dark:border-gray-700">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <Input placeholder="Cerca ingrediente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 w-full" />
+                    </div>
+                    <div>
+                        <select 
+                            value={selectedCategory} 
+                            onChange={e => setSelectedCategory(e.target.value)} 
+                            className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        >
+                            <option value="all">Tutte le Categorie</option>
+                            {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <select 
+                            value={selectedBrand} 
+                            onChange={e => setSelectedBrand(e.target.value)} 
+                            className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        >
+                            <option value="all">Tutti i Brand</option>
+                            {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Foto</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Componente</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variante</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disponibilità</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredVariants.map(v => {
+                                const p = products.find(prod => prod.id === v.productId);
+                                if (!p) return null;
+                                const stock = getAvailableQuantity(v.id);
+                                return (
+                                    <tr 
+                                        key={v.id} 
+                                        onClick={() => { onSelect(v.id); onClose(); }} 
+                                        className="cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                                    >
+                                        <td className="px-4 py-2">
+                                            {p.imageUrl ? (
+                                                <img src={p.imageUrl} alt={p.name} className="h-10 w-10 object-cover rounded" />
+                                            ) : (
+                                                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-gray-400">
+                                                    <ImageIcon size={20} />
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm font-medium">{p.name} <br/> <span className="text-xs text-gray-400">{p.category}</span></td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{p.brand}</td>
+                                        <td className="px-4 py-2 text-sm font-bold">{v.name}</td>
+                                        <td className="px-4 py-2 text-sm font-bold text-green-600">{stock} {p.unit}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                    {filteredVariants.length === 0 && (
+                        <div className="p-8 text-center text-gray-500">Nessun componente trovato con i filtri attuali.</div>
+                    )}
+                </div>
+                <div className="pt-4 mt-4 border-t flex justify-end">
+                    <Button variant="secondary" onClick={onClose}>Chiudi</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const ProductionView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const { products, productVariants, categories, inventoryBatches } = state[settings.currentYear]; const [isProductSelectorOpen, setProductSelectorOpen] = useState(false); const [isTargetSelectorOpen, setTargetSelectorOpen] = useState(false); const [isComponentSelectorOpen, setComponentSelectorOpen] = useState(false); const [activeComponentIndex, setActiveComponentIndex] = useState<number | null>(null); const [formData, setFormData] = useState<{ date: string; finishedProductId: string; quantityProduced: number; macerationDays: number; components: { variantId: string; quantityUsed: number; weightInGrams?: number }[]; productionType: 'finished_sale' | 'bulk_refill'; colorCode: string; colorDrops: number; enableColor: boolean; targetPercentage: number; skipMaceration: boolean; }>({ date: new Date().toISOString().split('T')[0], finishedProductId: '', quantityProduced: 1, macerationDays: 30, components: [{ variantId: '', quantityUsed: 1, weightInGrams: undefined }], productionType: 'finished_sale', colorCode: '#ffffff', colorDrops: 0, enableColor: false, targetPercentage: 20, skipMaceration: false }); const useVariantAvailableQuantity = useCallback((variantId: string) => { return inventoryBatches .filter(b => b.variantId === variantId && b.status === 'available') .reduce((sum, b) => sum + b.currentQuantity, 0); }, [inventoryBatches]); const getVariantDisplayName = (variant: ProductVariant) => { const product = products.find(p => p.id === variant.productId); return `${product?.name || 'Prodotto Sconosciuto'} - ${variant.name}`; }; const getProductUnit = (variantId: string) => { const variant = productVariants.find(v => v.id === variantId); const product = products.find(p => p.id === variant?.productId); return product?.unit || 'pz'; }; 
 
 // Updated Logic for finished goods
 const finishedGoodVariants = useMemo(() => { 
@@ -1639,15 +2221,61 @@ const selectedVariantForProduction = productVariants.find(v => v.id === formData
 const selectedProductForProduction = products.find(p => p.id === selectedVariantForProduction?.productId);
 
 
-const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { const { name, value, type } = e.target; setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value })); }; const handleAddComponent = () => { setFormData(prev => ({ ...prev, components: [...prev.components, { variantId: '', quantityUsed: 1 }] })); }; const handleBulkSelectComponents = (variantIds: string[]) => { const newComponents = variantIds.map(vid => ({ variantId: vid, quantityUsed: 1, weightInGrams: undefined })); setFormData(prev => ({ ...prev, components: [...prev.components, ...newComponents] })); }; const handleRemoveComponent = (index: number) => { setFormData(prev => ({ ...prev, components: prev.components.filter((_, i) => i !== index) })); }; const handleComponentChange = (index: number, field: 'variantId' | 'quantityUsed' | 'weightInGrams', value: string | number) => { const newComponents = [...formData.components]; newComponents[index] = { ...newComponents[index], [field]: value }; setFormData(prev => ({ ...prev, components: newComponents })); }; const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!formData.finishedProductId || formData.quantityProduced <= 0 || formData.components.length === 0 || formData.components.some(c => !c.variantId || c.quantityUsed <= 0)) { alert("Compila tutti i campi obbligatori: prodotto finito, quantità e componenti."); return; } dispatch({ type: 'ADD_PRODUCTION', payload: { ...formData, colorCode: formData.enableColor ? formData.colorCode : undefined, colorDrops: formData.enableColor ? formData.colorDrops : undefined, enableColor: undefined } as any }); alert("Produzione registrata con successo!"); setFormData({ date: formData.date, finishedProductId: '', quantityProduced: 1, macerationDays: 30, components: [{ variantId: '', quantityUsed: 1, weightInGrams: undefined }], productionType: 'finished_sale', colorCode: '#ffffff', colorDrops: 0, enableColor: false, targetPercentage: 20 }); };
+const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { const { name, value, type } = e.target; setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value })); }; const handleAddComponent = () => { setFormData(prev => ({ ...prev, components: [...prev.components, { variantId: '', quantityUsed: 1 }] })); }; const handleBulkSelectComponents = (variantIds: string[]) => { const newComponents = variantIds.map(vid => ({ variantId: vid, quantityUsed: 1, weightInGrams: undefined })); setFormData(prev => ({ ...prev, components: [...prev.components, ...newComponents] })); }; const handleRemoveComponent = (index: number) => { setFormData(prev => ({ ...prev, components: prev.components.filter((_, i) => i !== index) })); }; const handleComponentChange = (index: number, field: 'variantId' | 'quantityUsed' | 'weightInGrams', value: string | number) => { const newComponents = [...formData.components]; newComponents[index] = { ...newComponents[index], [field]: value }; setFormData(prev => ({ ...prev, components: newComponents })); }; const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!formData.finishedProductId || formData.quantityProduced <= 0 || formData.components.length === 0 || formData.components.some(c => !c.variantId || c.quantityUsed <= 0)) { alert("Compila tutti i campi obbligatori: prodotto finito, quantità e componenti."); return; } dispatch({ type: 'ADD_PRODUCTION', payload: { ...formData, macerationDays: formData.skipMaceration ? 0 : formData.macerationDays, colorCode: formData.enableColor ? formData.colorCode : undefined, colorDrops: formData.enableColor ? formData.colorDrops : undefined, enableColor: undefined, skipMaceration: undefined } as any }); alert("Produzione registrata con successo!"); setFormData({ date: formData.date, finishedProductId: '', quantityProduced: 1, macerationDays: 30, components: [{ variantId: '', quantityUsed: 1, weightInGrams: undefined }], productionType: 'finished_sale', colorCode: '#ffffff', colorDrops: 0, enableColor: false, targetPercentage: 20, skipMaceration: false }); };
 
 const suggestedEssence = (formData.quantityProduced * (formData.targetPercentage / 100));
 const suggestedAlcohol = formData.quantityProduced - suggestedEssence;
 
-return ( <Card title="Registra Nuova Produzione"> <form onSubmit={handleSubmit} className="space-y-8"> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> <div className="space-y-2"> <label className="block text-sm font-medium">Data Produzione</label> <Input name="date" type="date" value={formData.date} onChange={handleFormChange} required /> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Tipo Produzione</label> <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1"> <button type="button" onClick={() => setFormData(p => ({...p, productionType: 'finished_sale'}))} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${formData.productionType === 'finished_sale' ? 'bg-white dark:bg-gray-600 shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`} > <PackageIcon className="inline mr-1 h-4 w-4" /> Prodotto Finito (Vendita) </button> <button type="button" onClick={() => setFormData(p => ({...p, productionType: 'bulk_refill'}))} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${formData.productionType === 'bulk_refill' ? 'bg-white dark:bg-gray-600 shadow text-amber-600' : 'text-gray-500 hover:text-gray-700'}`} > <Beaker className="inline mr-1 h-4 w-4" /> Semilavorato (Sfuso) </button> </div> <p className="text-xs text-gray-500 mt-1"> {formData.productionType === 'finished_sale' ? 'Es: Bottiglia 50ml pronta per lo scaffale.' : 'Es: Tanica da 2 litri per riempimenti futuri.'} </p> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Articolo da Produrre</label> <select name="finishedProductId" value={formData.finishedProductId} onChange={handleFormChange} required className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"> <option value="">Seleziona prodotto...</option> {finishedGoodVariants.map(v => <option key={v.id} value={v.id}>{getVariantDisplayName(v)}</option>)} </select> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Quantità Prodotta</label> <div className="flex items-center"> <Input name="quantityProduced" type="number" min="1" value={formData.quantityProduced} onChange={handleFormChange} required className="rounded-r-none" /> <span className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 px-3 py-2 rounded-r-md text-gray-500"> {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'} </span> </div> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Concentrazione (%)</label> <div className="flex items-center"> <Input name="targetPercentage" type="number" min="0" max="100" step="0.1" value={formData.targetPercentage} onChange={handleFormChange} required className="rounded-r-none" /> <span className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 px-3 py-2 rounded-r-md text-gray-500"> % </span> </div> {selectedProductForProduction?.ifraLimit && ( <p className="text-xs text-blue-600 mt-1 flex items-center"> <Info size={12} className="mr-1" /> Limite IFRA scheda prodotto: <strong>{selectedProductForProduction.ifraLimit}%</strong> </p> )} </div> </div> <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row gap-4 items-center justify-between text-sm"> <div className="flex items-center"> <Info className="mr-2 text-blue-600" size={20} /> <span className="text-blue-800 dark:text-blue-200 font-medium">Suggerimento Dosaggio ({formData.targetPercentage}%):</span> </div> <div className="flex gap-6"> <div> <span className="block text-xs text-gray-500 uppercase">Essenza Totale</span> <span className="font-bold text-lg">{suggestedEssence.toFixed(2)} {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'}</span> </div> <div> <span className="block text-xs text-gray-500 uppercase">Alcool/Solvente</span> <span className="font-bold text-lg">{suggestedAlcohol.toFixed(2)} {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'}</span> </div> </div> </div> <hr className="dark:border-gray-700" /> <div> <h4 className="text-lg font-semibold mb-4 flex items-center"><Layers className="mr-2" /> Ingredienti / Componenti</h4> <div className="space-y-3"> {formData.components.map((component, index) => { const stock = useVariantAvailableQuantity(component.variantId); const unit = component.variantId ? getProductUnit(component.variantId) : ''; const isLiquid = unit === 'ml' || unit === 'l'; const isStockLow = component.quantityUsed > stock; const percentOfTotal = formData.quantityProduced > 0 ? ((component.quantityUsed / formData.quantityProduced) * 100).toFixed(1) : '0.0'; return ( <div key={index} className="flex flex-col md:flex-row gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700 relative"> <div className="flex-grow"> <label className="text-xs font-semibold text-gray-500 uppercase">Componente</label> <select value={component.variantId} onChange={e => handleComponentChange(index, 'variantId', e.target.value)} required className="w-full mt-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600" > <option value="">Seleziona ingrediente...</option> {availableComponents.map(v => <option key={v.id} value={v.id}>{getVariantDisplayName(v)} (Disp: {useVariantAvailableQuantity(v.id)} {getProductUnit(v.id)})</option>)} </select> </div> <div className="w-full md:w-32"> <label className="text-xs font-semibold text-gray-500 uppercase">Quantità</label> <div className="flex mt-1 items-center"> <input type="number" min="0.0001" step="0.0001" value={component.quantityUsed} onChange={e => handleComponentChange(index, 'quantityUsed', parseFloat(e.target.value) || 0)} className={`w-full p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600" ${isStockLow ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`} /> <span className="inline-flex items-center px-3 rounded-r border border-l-0 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-sm"> {unit || '-'} </span> </div> <span className="text-xs text-blue-600 font-medium mt-1 block"> {percentOfTotal}% del totale </span> </div> {isLiquid && ( <div className="w-full md:w-32"> <label className="text-xs font-semibold text-gray-500 uppercase">Peso (Opz.)</label> <div className="flex mt-1"> <input type="number" min="0" step="0.01" value={component.weightInGrams || ''} placeholder="0" onChange={e => handleComponentChange(index, 'weightInGrams', parseFloat(e.target.value) || 0)} className="w-full p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600" /> <span className="inline-flex items-center px-3 rounded-r border border-l-0 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-sm"> g </span> </div> </div> )} <div className="flex items-end pb-1"> <Button type="button" variant="ghost" className="text-red-500 hover:bg-red-100" onClick={() => handleRemoveComponent(index)}><Trash2 size={18} /></Button> </div> </div> ) })} <div className="flex gap-2"> <Button type="button" variant="secondary" onClick={handleAddComponent} className="flex-1 border-dashed border-2 border-gray-300 dark:border-gray-600"><PlusCircle size={16} className="mr-2" /> Aggiungi Riga Singola</Button> <Button type="button" variant="secondary" onClick={() => setProductSelectorOpen(true)} className="flex-1 border-dashed border-2 border-gray-300 dark:border-gray-600"><ListTree size={16} className="mr-2" /> Seleziona da Catalogo</Button> </div> </div> </div> <hr className="dark:border-gray-700" /> <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700"> <div className="flex items-center justify-between mb-4"> <h4 className="font-semibold flex items-center"><Droplets className="mr-2 text-purple-500" /> Colorazione</h4> <label className="relative inline-flex items-center cursor-pointer"> <input type="checkbox" checked={formData.enableColor} onChange={e => setFormData(p => ({...p, enableColor: e.target.checked}))} className="sr-only peer" /> <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div> </label> </div> {formData.enableColor && ( <div className="grid grid-cols-2 gap-4 animate-fade-in"> <div> <label className="block text-xs font-semibold text-gray-500 mb-1">Colore</label> <div className="flex items-center space-x-2"> <input type="color" value={formData.colorCode} onChange={e => setFormData(p => ({...p, colorCode: e.target.value}))} className="h-10 w-10 p-0 border-0 rounded cursor-pointer" /> <span className="text-xs font-mono text-gray-500">{formData.colorCode}</span> </div> </div> <div> <label className="block text-xs font-semibold text-gray-500 mb-1">Quantità Gocce</label> <Input type="number" min="0" value={formData.colorDrops} onChange={e => setFormData(p => ({...p, colorDrops: parseFloat(e.target.value)}))} /> </div> </div> )} {!formData.enableColor && <p className="text-sm text-gray-500">Nessuna colorazione aggiuntiva.</p>} </div> <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg"> <div className="flex items-center mb-4"> <Wine className="text-amber-600 mr-2" size={20} /> <h4 className="font-semibold text-amber-800 dark:text-amber-200">Macerazione</h4> </div> <div className="flex items-center space-x-4"> <div className="w-full"> <Input label="Giorni di Riposo" name="macerationDays" type="number" min="0" value={formData.macerationDays} onChange={handleFormChange} /> </div> </div> <p className="text-xs text-gray-600 dark:text-gray-400 mt-2"> {formData.macerationDays > 0 ? `Disponibile dal: ${(() => { const d = new Date(formData.date); d.setDate(d.getDate() + formData.macerationDays); return d.toLocaleDateString(); })()}` : "Disponibile immediatamente." } </p> </div> </div> <div className="flex justify-end pt-4"> <Button type="submit" size="lg">Registra Produzione</Button> </div> </form> <ProductSelectorModal isOpen={isProductSelectorOpen} onClose={() => setProductSelectorOpen(false)} onConfirm={handleBulkSelectComponents} title="Seleziona Ingredienti" /> </Card> ); };
+return ( <Card title="Registra Nuova Produzione"> <form onSubmit={handleSubmit} className="space-y-8"> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> <div className="space-y-2"> <label className="block text-sm font-medium">Data Produzione</label> <Input name="date" type="date" value={formData.date} onChange={handleFormChange} required /> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Tipo Produzione</label> <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1"> <button type="button" onClick={() => setFormData(p => ({...p, productionType: 'finished_sale'}))} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${formData.productionType === 'finished_sale' ? 'bg-white dark:bg-gray-600 shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`} > <PackageIcon className="inline mr-1 h-4 w-4" /> Prodotto Finito (Vendita) </button> <button type="button" onClick={() => setFormData(p => ({...p, productionType: 'bulk_refill'}))} className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${formData.productionType === 'bulk_refill' ? 'bg-white dark:bg-gray-600 shadow text-amber-600' : 'text-gray-500 hover:text-gray-700'}`} > <Beaker className="inline mr-1 h-4 w-4" /> Semilavorato (Sfuso) </button> </div> <p className="text-xs text-gray-500 mt-1"> {formData.productionType === 'finished_sale' ? 'Es: Bottiglia 50ml pronta per lo scaffale.' : 'Es: Tanica da 2 litri per riempimenti futuri.'} </p> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Articolo da Produrre</label> <div className="flex gap-2"> <div className="flex-1 p-2 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm flex items-center bg-gray-50 dark:bg-gray-900/50"> {selectedVariantForProduction ? ( <span className="font-medium text-gray-900 dark:text-gray-100"> {getVariantDisplayName(selectedVariantForProduction)} </span> ) : ( <span className="text-gray-400 italic">Nessun prodotto selezionato</span> )} </div> <Button type="button" variant="secondary" onClick={() => setTargetSelectorOpen(true)} title="Cerca e Seleziona Prodotto"> <Search size={18} /> </Button> </div> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Quantità Prodotta</label> <div className="flex items-center"> <Input name="quantityProduced" type="number" min="1" value={formData.quantityProduced} onChange={handleFormChange} required className="rounded-r-none" /> <span className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 px-3 py-2 rounded-r-md text-gray-500"> {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'} </span> </div> </div> <div className="space-y-2"> <label className="block text-sm font-medium">Concentrazione (%)</label> <div className="flex items-center"> <Input name="targetPercentage" type="number" min="0" max="100" step="0.1" value={formData.targetPercentage} onChange={handleFormChange} required className="rounded-r-none" /> <span className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 px-3 py-2 rounded-r-md text-gray-500"> % </span> </div> {selectedProductForProduction?.ifraLimit && ( <p className="text-xs text-blue-600 mt-1 flex items-center"> <Info size={12} className="mr-1" /> Limite IFRA scheda prodotto: <strong>{selectedProductForProduction.ifraLimit}%</strong> </p> )} </div> </div> <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row gap-4 items-center justify-between text-sm"> <div className="flex items-center"> <Info className="mr-2 text-blue-600" size={20} /> <span className="text-blue-800 dark:text-blue-200 font-medium">Suggerimento Dosaggio ({formData.targetPercentage}%):</span> </div> <div className="flex gap-6"> <div> <span className="block text-xs text-gray-500 uppercase">Essenza Totale</span> <span className="font-bold text-lg">{suggestedEssence.toFixed(2)} {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'}</span> </div> <div> <span className="block text-xs text-gray-500 uppercase">Alcool/Solvente</span> <span className="font-bold text-lg">{suggestedAlcohol.toFixed(2)} {formData.finishedProductId ? getProductUnit(formData.finishedProductId) : 'unità'}</span> </div> </div> </div> <hr className="dark:border-gray-700" /> <div> <h4 className="text-lg font-semibold mb-4 flex items-center"><Layers className="mr-2" /> Ingredienti / Componenti</h4> <div className="space-y-3"> {formData.components.map((component, index) => { const stock = useVariantAvailableQuantity(component.variantId); const unit = component.variantId ? getProductUnit(component.variantId) : ''; const isLiquid = unit === 'ml' || unit === 'l'; const isStockLow = component.quantityUsed > stock; const percentOfTotal = formData.quantityProduced > 0 ? ((component.quantityUsed / formData.quantityProduced) * 100).toFixed(1) : '0.0'; 
+    const selectedComponentVariant = productVariants.find(v => v.id === component.variantId);
+    
+    return ( <div key={index} className="flex flex-col md:flex-row gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700 relative"> <div className="flex-grow"> <label className="text-xs font-semibold text-gray-500 uppercase">Componente</label> <div className="flex gap-2 mt-1"> <div className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm flex items-center bg-white dark:bg-gray-900/50"> {selectedComponentVariant ? ( <span className="font-medium text-gray-900 dark:text-gray-100"> {getVariantDisplayName(selectedComponentVariant)} </span> ) : ( <span className="text-gray-400 italic">Seleziona ingrediente...</span> )} </div> <Button type="button" variant="secondary" onClick={() => { setActiveComponentIndex(index); setComponentSelectorOpen(true); }} > <Search size={18} /> </Button> </div> </div> <div className="w-full md:w-32"> <label className="text-xs font-semibold text-gray-500 uppercase">Quantità</label> <div className="flex mt-1 items-center"> <input type="number" min="0.0001" step="0.0001" value={component.quantityUsed} onChange={e => handleComponentChange(index, 'quantityUsed', parseFloat(e.target.value) || 0)} className={`w-full p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600" ${isStockLow ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`} /> <span className="inline-flex items-center px-3 rounded-r border border-l-0 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-sm"> {unit || '-'} </span> </div> <span className="text-xs text-blue-600 font-medium mt-1 block"> {percentOfTotal}% del totale </span> </div> {isLiquid && ( <div className="w-full md:w-32"> <label className="text-xs font-semibold text-gray-500 uppercase">Peso (Opz.)</label> <div className="flex mt-1"> <input type="number" min="0" step="0.01" value={component.weightInGrams || ''} placeholder="0" onChange={e => handleComponentChange(index, 'weightInGrams', parseFloat(e.target.value) || 0)} className="w-full p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600" /> <span className="inline-flex items-center px-3 rounded-r border border-l-0 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-sm"> g </span> </div> </div> )} <div className="flex items-end pb-1"> <Button type="button" variant="ghost" className="text-red-500 hover:bg-red-100" onClick={() => handleRemoveComponent(index)}><Trash2 size={18} /></Button> </div> </div> ) })} <div className="flex gap-2"> <Button type="button" variant="secondary" onClick={handleAddComponent} className="flex-1 border-dashed border-2 border-gray-300 dark:border-gray-600"><PlusCircle size={16} className="mr-2" /> Aggiungi Riga Singola</Button> <Button type="button" variant="secondary" onClick={() => setProductSelectorOpen(true)} className="flex-1 border-dashed border-2 border-gray-300 dark:border-gray-600"><ListTree size={16} className="mr-2" /> Seleziona da Catalogo</Button> </div> </div> </div> <hr className="dark:border-gray-700" /> <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700"> <div className="flex items-center justify-between mb-4"> <h4 className="font-semibold flex items-center"><Droplets className="mr-2 text-purple-500" /> Colorazione</h4> <label className="relative inline-flex items-center cursor-pointer"> <input type="checkbox" checked={formData.enableColor} onChange={e => setFormData(p => ({...p, enableColor: e.target.checked}))} className="sr-only peer" /> <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div> </label> </div> {formData.enableColor && ( <div className="grid grid-cols-2 gap-4 animate-fade-in"> <div> <label className="block text-xs font-semibold text-gray-500 mb-1">Colore</label> <div className="flex items-center space-x-2"> <input type="color" value={formData.colorCode} onChange={e => setFormData(p => ({...p, colorCode: e.target.value}))} className="h-10 w-10 p-0 border-0 rounded cursor-pointer" /> <span className="text-xs font-mono text-gray-500">{formData.colorCode}</span> </div> </div> <div> <label className="block text-xs font-semibold text-gray-500 mb-1">Quantità Gocce</label> <Input type="number" min="0" value={formData.colorDrops} onChange={e => setFormData(p => ({...p, colorDrops: parseFloat(e.target.value)}))} /> </div> </div> )} {!formData.enableColor && <p className="text-sm text-gray-500">Nessuna colorazione aggiuntiva.</p>} </div> <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg"> <div className="flex items-center mb-4"> <Wine className="text-amber-600 mr-2" size={20} /> <h4 className="font-semibold text-amber-800 dark:text-amber-200">Macerazione</h4> </div> <div className="flex items-center space-x-4"> <div className="w-full"> <Input label="Giorni di Riposo" name="macerationDays" type="number" min="0" value={formData.skipMaceration ? 0 : formData.macerationDays} onChange={handleFormChange} disabled={formData.skipMaceration} /> </div> </div> <div className="mt-2 flex items-center"> <label className="flex items-center space-x-2 cursor-pointer"> <input type="checkbox" checked={formData.skipMaceration} onChange={e => setFormData(p => ({...p, skipMaceration: e.target.checked}))} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" /> <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Macerazione già effettuata (Bulk)</span> </label> </div> <p className="text-xs text-gray-600 dark:text-gray-400 mt-2"> {formData.skipMaceration ? "Prodotto disponibile immediatamente." : (formData.macerationDays > 0 ? `Disponibile dal: ${(() => { const d = new Date(formData.date); d.setDate(d.getDate() + formData.macerationDays); return d.toLocaleDateString(); })()}` : "Disponibile immediatamente.") } </p> </div> </div> <div className="flex justify-end pt-4"> <Button type="submit" size="lg">Registra Produzione</Button> </div> </form> <ProductSelectorModal isOpen={isProductSelectorOpen} onClose={() => setProductSelectorOpen(false)} onConfirm={handleBulkSelectComponents} title="Seleziona Ingredienti" /> <ProductionTargetSelectorModal isOpen={isTargetSelectorOpen} onClose={() => setTargetSelectorOpen(false)} onSelect={(variantId) => setFormData(prev => ({ ...prev, finishedProductId: variantId }))} variants={finishedGoodVariants} products={products} categories={categories} /> <ProductionComponentSelectorModal isOpen={isComponentSelectorOpen} onClose={() => setComponentSelectorOpen(false)} onSelect={(variantId) => { if (activeComponentIndex !== null) { handleComponentChange(activeComponentIndex, 'variantId', variantId); } }} variants={availableComponents} products={products} categories={categories} inventoryBatches={inventoryBatches} /> </Card> ); };
 const CellarView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const { inventoryBatches, products, productVariants } = state[settings.currentYear]; const maceratingBatches = useMemo(() => { return inventoryBatches .filter(b => b.status === 'macerating' && b.currentQuantity > 0) .map(b => { const variant = productVariants.find(v => v.id === b.variantId); const product = products.find(p => p.id === variant?.productId); const endDate = b.macerationEndDate ? new Date(b.macerationEndDate) : new Date(); const today = new Date(); const isReady = today >= endDate; const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)); return { ...b, productName: product?.name || 'N/A', variantName: variant?.name || 'N/A', daysLeft: daysLeft > 0 ? daysLeft : 0, isReady }; }) .sort((a, b) => (a.isReady === b.isReady) ? 0 : a.isReady ? -1 : 1); }, [inventoryBatches, products, productVariants]); const handleCompleteMaceration = (batchId: string) => { if (confirm("Confermi che questo lotto ha terminato la macerazione? Verrà reso disponibile per la vendita.")) { dispatch({ type: 'COMPLETE_MACERATION', payload: batchId }); } }; return ( <Card title="Cantina & Macerazione"> <p className="text-sm text-gray-600 dark:text-gray-400 mb-6"> Qui puoi monitorare i lotti in fase di macerazione. Quando un profumo è pronto, clicca su "Termina Macerazione" per renderlo disponibile alla vendita (imbottigliamento). </p> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {maceratingBatches.map(batch => ( <div key={batch.id} className={`border rounded-lg p-4 shadow-sm relative overflow-hidden ${batch.isReady ? 'bg-green-50 dark:bg-green-900/20 border-green-200' : 'bg-white dark:bg-gray-800 border-gray-200'}`}> {batch.isReady && ( <div className="absolute top-0 right-0 bg-green-500 text-white text-xs px-2 py-1 font-bold rounded-bl">PRONTO</div> )} <div className="flex items-start justify-between mb-2"> <div> <h3 className="font-bold text-lg">{batch.productName}</h3> <p className="text-sm text-gray-500">{batch.variantName}</p> </div> <Wine className={batch.isReady ? "text-green-500" : "text-amber-500"} size={24} /> </div> <div className="space-y-2 text-sm mt-4"> <div className="flex justify-between"> <span className="text-gray-600 dark:text-gray-400">Lotto:</span> <span className="font-mono">{batch.batchNumber}</span> </div> <div className="flex justify-between"> <span className="text-gray-600 dark:text-gray-400">Quantità:</span> <span className="font-bold">{batch.currentQuantity}</span> </div> <div className="flex justify-between"> <span className="text-gray-600 dark:text-gray-400">Fine Macerazione:</span> <span>{batch.macerationEndDate ? new Date(batch.macerationEndDate).toLocaleDateString() : 'N/D'}</span> </div> <div className="flex justify-between items-center pt-2 border-t dark:border-gray-700"> <span className="text-gray-600 dark:text-gray-400">Stato:</span> {batch.isReady ? ( <span className="text-green-600 font-bold flex items-center"><Check size={14} className="mr-1"/> Pronto all'uso</span> ) : ( <span className="text-amber-600 font-bold flex items-center"><Clock size={14} className="mr-1"/> -{batch.daysLeft} giorni</span> )} </div> </div> <Button onClick={() => handleCompleteMaceration(batch.id)} className={`w-full mt-4 ${batch.isReady ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}`} > {batch.isReady ? "Imbottiglia / Rendi Disponibile" : "Forza Fine Macerazione"} </Button> </div> ))} </div> {maceratingBatches.length === 0 && ( <div className="text-center py-10 text-gray-500"> <Wine size={48} className="mx-auto mb-4 opacity-50" /> <p>La cantina è vuota. Nessun prodotto in macerazione al momento.</p> </div> )} </Card> ); };
 export const PartnerManagementModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => { const { state, dispatch } = useAppContext(); const [newPartnerName, setNewPartnerName] = useState(''); const handleAdd = () => { if (newPartnerName.trim()) { dispatch({ type: 'ADD_PARTNER', payload: { name: newPartnerName.trim() } }); setNewPartnerName(''); } }; const handleDelete = (id: string) => { if (confirm("Sei sicuro di voler eliminare questo socio?")) { dispatch({ type: 'DELETE_PARTNER', payload: id }); } }; const handleUpdate = (id: string, name: string) => { const newName = prompt("Nuovo nome:", name); if (newName && newName.trim()) { dispatch({ type: 'UPDATE_PARTNER', payload: { id, name: newName.trim() } }); } }; return ( <Modal isOpen={isOpen} onClose={onClose} title="Gestione Soci"> <div className="space-y-4"> <div className="flex gap-2"> <Input value={newPartnerName} onChange={e => setNewPartnerName(e.target.value)} placeholder="Nome nuovo socio" /> <Button onClick={handleAdd}>Aggiungi</Button> </div> <ul className="divide-y dark:divide-gray-700"> {state.partners.map(p => ( <li key={p.id} className="py-2 flex justify-between items-center"> <span>{p.name}</span> <div className="space-x-1"> <Button variant="ghost" size="sm" onClick={() => handleUpdate(p.id, p.name)}><Edit size={16} /></Button> <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)}><Trash2 size={16} /></Button> </div> </li> ))} </ul> </div> </Modal> ); };
-const ProductionHistoryView: React.FC = () => { const { state, settings, dispatch } = useAppContext(); const yearData = state[settings.currentYear]; const getVariantName = (id: string) => { const v = yearData.productVariants.find(v => v.id === id); const p = yearData.products.find(p => p.id === v?.productId); return `${p?.name} - ${v?.name}`; }; return ( <Card title="Storico Produzioni"> <Table headers={["Data", "Lotto", "Tipo", "Prodotto", "Colore", "Quantità", "Scadenza", "Azioni"]}> {yearData.productions.map(p => ( <tr key={p.id}> <td className="px-6 py-4">{new Date(p.date).toLocaleDateString()}</td> <td className="px-6 py-4 font-mono">{p.batchNumber}</td> <td className="px-6 py-4"> {p.productionType === 'bulk_refill' ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"><Beaker size={12} className="mr-1"/> Sfuso</span> : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"><PackageIcon size={12} className="mr-1"/> Finito</span> } </td> <td className="px-6 py-4">{getVariantName(p.finishedProductId)}</td> <td className="px-6 py-4 text-center"> {p.colorCode ? ( <div className="flex flex-col items-center"> <div className="w-6 h-6 rounded-full border shadow-sm" style={{ backgroundColor: p.colorCode }}></div> {p.colorDrops && <span className="text-xs text-gray-500">{p.colorDrops} gc.</span>} </div> ) : ( <span className="text-gray-400 text-xs">-</span> )} </td> <td className="px-6 py-4 font-bold">{p.quantityProduced}</td> <td className="px-6 py-4">{p.expirationDate}</td> <td className="px-6 py-4"> <Button variant="ghost" size="sm" className="text-red-500" onClick={() => { if(confirm("Eliminare produzione? Questo ripristinerà le giacenze dei componenti.")) dispatch({ type: 'DELETE_PRODUCTION', payload: p.id }) }}><Trash2 size={16} /></Button> </td> </tr> ))} </Table> <div className="text-center mt-4"> <Button variant="ghost" className="text-gray-500" onClick={() => alert("Il supporto per la modifica delle produzioni verrà aggiunto in una versione futura. Per ora, elimina e ricrea.")}> <Edit size={16} className="mr-2" /> Hai bisogno di modificare una produzione? </Button> </div> </Card> ); };
+const ProductionHistoryView: React.FC = () => { 
+    const { state, settings, dispatch } = useAppContext(); 
+    const yearData = state[settings.currentYear]; 
+    const getVariantName = (id: string) => { const v = yearData.productVariants.find(v => v.id === id); const p = yearData.products.find(p => p.id === v?.productId); return `${p?.name} - ${v?.name}`; }; 
+    
+    // Mapping for sort
+    const mappedProductions = useMemo(() => {
+        return yearData.productions.map(p => ({
+            ...p,
+            productName: getVariantName(p.finishedProductId)
+        }));
+    }, [yearData.productions, yearData.productVariants, yearData.products]);
+
+    const { items: sortedProductions, requestSort, sortConfig } = useSortableData(mappedProductions);
+
+    return ( 
+        <Card title="Storico Produzioni"> 
+            <Table headers={[
+                <SortHeader label="Data" sortKey="date" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Lotto" sortKey="batchNumber" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Tipo" sortKey="productionType" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Prodotto" sortKey="productName" currentSort={sortConfig} onSort={requestSort} />,
+                "Colore", 
+                <SortHeader label="Quantità" sortKey="quantityProduced" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Scadenza" sortKey="expirationDate" currentSort={sortConfig} onSort={requestSort} />,
+                "Azioni"
+            ]}> 
+                {sortedProductions.map(p => ( 
+                    <tr key={p.id}> 
+                        <td className="px-6 py-4">{new Date(p.date).toLocaleDateString()}</td> 
+                        <td className="px-6 py-4 font-mono">{p.batchNumber}</td> 
+                        <td className="px-6 py-4"> {p.productionType === 'bulk_refill' ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"><Beaker size={12} className="mr-1"/> Sfuso</span> : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"><PackageIcon size={12} className="mr-1"/> Finito</span> } </td> 
+                        <td className="px-6 py-4">{p.productName}</td> 
+                        <td className="px-6 py-4 text-center"> {p.colorCode ? ( <div className="flex flex-col items-center"> <div className="w-6 h-6 rounded-full border shadow-sm" style={{ backgroundColor: p.colorCode }}></div> {p.colorDrops && <span className="text-xs text-gray-500">{p.colorDrops} gc.</span>} </div> ) : ( <span className="text-gray-400 text-xs">-</span> )} </td> 
+                        <td className="px-6 py-4 font-bold">{p.quantityProduced}</td> 
+                        <td className="px-6 py-4">{p.expirationDate}</td> 
+                        <td className="px-6 py-4"> <Button variant="ghost" size="sm" className="text-red-500" onClick={() => { if(confirm("Eliminare produzione? Questo ripristinerà le giacenze dei componenti.")) dispatch({ type: 'DELETE_PRODUCTION', payload: p.id }) }}><Trash2 size={16} /></Button> </td> 
+                    </tr> 
+                ))} 
+            </Table> 
+            <div className="text-center mt-4"> <Button variant="ghost" className="text-gray-500" onClick={() => alert("Il supporto per la modifica delle produzioni verrà aggiunto in una versione futura. Per ora, elimina e ricrea.")}> <Edit size={16} className="mr-2" /> Hai bisogno di modificare una produzione? </Button> </div> 
+        </Card> 
+    ); 
+};
 
 interface PartnerDetailModalProps {
     isOpen: boolean;
@@ -1659,12 +2287,13 @@ const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ isOpen, onClose
     const yearData = state[settings.currentYear];
     const [isPrintModalOpen, setPrintModalOpen] = useState(false);
     
+    // Sort logic inside modal
     const entries = useMemo(() => {
         if(!partner || !yearData.partnerLedger) return [];
-        return yearData.partnerLedger
-            .filter(e => e.partnerId === partner.id)
-            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return yearData.partnerLedger.filter(e => e.partnerId === partner.id);
     }, [partner, yearData.partnerLedger]);
+
+    const { items: sortedEntries, requestSort, sortConfig } = useSortableData(entries, { key: 'date', direction: 'ascending' });
 
     if (!partner) return null;
 
@@ -1675,8 +2304,13 @@ const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ isOpen, onClose
                      <Button variant="secondary" onClick={() => setPrintModalOpen(true)}><Printer className="mr-2 h-4 w-4"/> Stampa Estratto Conto</Button>
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto">
-                    <Table headers={["Data", "Descrizione", "Entrate (+)", "Uscite (-)"]}>
-                        {entries.map(e => (
+                    <Table headers={[
+                        <SortHeader label="Data" sortKey="date" currentSort={sortConfig} onSort={requestSort} />,
+                        <SortHeader label="Descrizione" sortKey="description" currentSort={sortConfig} onSort={requestSort} />,
+                        <SortHeader label="Entrate (+)" sortKey="amount" currentSort={sortConfig} onSort={requestSort} />,
+                        <SortHeader label="Uscite (-)" sortKey="amount" currentSort={sortConfig} onSort={requestSort} />
+                    ]}>
+                        {sortedEntries.map(e => (
                             <tr key={e.id}>
                                 <td className="px-4 py-2 text-sm">{new Date(e.date).toLocaleDateString()}</td>
                                 <td className="px-4 py-2 text-sm">{e.description}</td>
@@ -1693,7 +2327,7 @@ const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({ isOpen, onClose
             </Modal>
             
             <PrintModal isOpen={isPrintModalOpen} onClose={() => setPrintModalOpen(false)} title="Stampa Estratto Conto" documentName={`estratto_conto_${partner.id}_${new Date().toISOString().split('T')[0]}`}>
-                <PrintablePartnerLedger partner={partner} entries={entries} companyInfo={settings.companyInfo} />
+                <PrintablePartnerLedger partner={partner} entries={sortedEntries} companyInfo={settings.companyInfo} />
             </PrintModal>
         </>
     );
@@ -1745,8 +2379,8 @@ const PartnerLedgerView: React.FC = () => {
     const [selectedSettlement, setSelectedSettlement] = useState<PartnerSettlement | null>(null);
     const [isPrintOverviewOpen, setPrintOverviewOpen] = useState(false);
     const [isPrintCompleteOpen, setPrintCompleteOpen] = useState(false);
+    const [isTransferModalOpen, setTransferModalOpen] = useState(false);
 
-    // --- DIFESA CONTRO CRASH: yearData undefined ---
     if (!yearData) {
         return (
             <Card title="Errore Caricamento">
@@ -1755,9 +2389,7 @@ const PartnerLedgerView: React.FC = () => {
         );
     }
 
-    // --- LOGICA DI CALCOLO ---
     const partnerStats = useMemo(() => {
-        // Fallback se partnerLedger non esiste ancora (es. vecchi salvataggi)
         const currentLedger = yearData.partnerLedger || [];
         
         const stats = state.partners.map(p => {
@@ -1787,7 +2419,6 @@ const PartnerLedgerView: React.FC = () => {
         return { stats: finalStats, totalSystemBalance, targetPerPartner };
     }, [state.partners, yearData.partnerLedger]); 
 
-    // --- LOGICA DI RICONCILIAZIONE (CHI DEVE A CHI) ---
     const settlementPlan = useMemo(() => {
         let debtors = partnerStats.stats.filter(s => s.status === 'debtor').map(s => ({ ...s, remainder: Math.abs(s.diff) }));
         let creditors = partnerStats.stats.filter(s => s.status === 'creditor').map(s => ({ ...s, remainder: s.diff }));
@@ -1845,7 +2476,7 @@ const PartnerLedgerView: React.FC = () => {
             partnerSnapshots: partnerStats.stats.map(s => ({
                 partnerId: s.id,
                 partnerName: s.name,
-                balance: s.netBalance, // This is the "net balance" we want to zero out.
+                balance: s.netBalance,
                 status: s.status
             }))
         };
@@ -1854,105 +2485,121 @@ const PartnerLedgerView: React.FC = () => {
         setIsArchiveConfirmOpen(false);
     };
 
-    const historySettlements = yearData.partnerSettlements || []; // Fallback array vuoto
-
     return (
-        <Card title="Dare / Avere Soci">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 border-b dark:border-gray-700 pb-2 gap-2">
-                <div className="flex space-x-4">
-                    <button className={`pb-2 px-4 ${activeTab === 'dashboard' ? 'border-b-2 border-primary-500 font-bold' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard & Saldi</button>
-                    <button className={`pb-2 px-4 ${activeTab === 'history' ? 'border-b-2 border-primary-500 font-bold' : ''}`} onClick={() => setActiveTab('history')}>Storico Conteggi</button>
-                </div>
-                 {activeTab === 'dashboard' && (
-                    <div className="flex gap-2">
-                        <Button variant="secondary" onClick={() => setPrintOverviewOpen(true)}><Printer className="mr-2 h-4 w-4" /> Stampa Saldi</Button>
-                        <Button variant="secondary" onClick={() => setPrintCompleteOpen(true)}><FileStack className="mr-2 h-4 w-4" /> Stampa Completa</Button>
-                    </div>
-                 )}
+        <Card title="Mastro Soci & Bilanciamento">
+            <div className="flex space-x-4 border-b dark:border-gray-700 mb-6">
+                <button 
+                    className={`pb-2 px-4 font-medium ${activeTab === 'dashboard' ? 'border-b-2 border-primary-600 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveTab('dashboard')}
+                >
+                    Bilancio Attuale
+                </button>
+                <button 
+                    className={`pb-2 px-4 font-medium ${activeTab === 'history' ? 'border-b-2 border-primary-600 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveTab('history')}
+                >
+                    Storico Chiusure
+                </button>
             </div>
 
-            {activeTab === 'dashboard' && (
-                <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+            {activeTab === 'dashboard' ? (
+                <div className="space-y-8 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-center">
+                            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wide">Totale Liquidità Sistema</h3>
+                            <p className="text-4xl font-bold mt-2 text-primary-700">€{partnerStats.totalSystemBalance.toFixed(2)}</p>
+                            <p className="text-xs text-gray-400 mt-2">Somma algebrica di tutti i versamenti e prelievi</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 text-center">
+                            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wide">Target per Socio</h3>
+                            <p className="text-4xl font-bold mt-2 text-gray-700 dark:text-gray-200">€{partnerStats.targetPerPartner.toFixed(2)}</p>
+                            <p className="text-xs text-gray-400 mt-2">Quota ideale per il pareggio (Totale / N. Soci)</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {partnerStats.stats.map(p => (
-                            <div 
-                                key={p.id} 
-                                className={`p-4 rounded-lg border shadow-sm cursor-pointer transition-all hover:shadow-md ${selectedPartner?.id === p.id ? 'ring-2 ring-primary-500' : ''} ${p.status === 'creditor' ? 'bg-green-50 border-green-200 dark:bg-green-900/20' : p.status === 'debtor' ? 'bg-red-50 border-red-200 dark:bg-red-900/20' : 'bg-gray-50 border-gray-200 dark:bg-gray-800'}`}
-                                onClick={() => setSelectedPartner({id: p.id, name: p.name})}
-                            >
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="font-bold text-lg">{p.name}</h3>
-                                    {p.status === 'creditor' && <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">CREDITORE</span>}
-                                    {p.status === 'debtor' && <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">DEBITORE</span>}
-                                    {p.status === 'balanced' && <span className="bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full font-bold">BILANCIATO</span>}
+                            <div key={p.id} className="relative bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
+                                <h4 className="text-lg font-bold mb-3">{p.name}</h4>
+                                <div className="space-y-2 text-sm mb-4">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Versamenti (+):</span>
+                                        <span className="font-semibold text-green-600">€{p.paid.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Prelievi (-):</span>
+                                        <span className="font-semibold text-red-600">€{p.collected.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-2 border-t dark:border-gray-700">
+                                        <span className="font-bold">Saldo Netto:</span>
+                                        <span className={`font-bold ${p.netBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>€{p.netBalance.toFixed(2)}</span>
+                                    </div>
                                 </div>
-                                <div className="space-y-1 text-sm">
-                                    <div className="flex justify-between"><span>Versamenti:</span> <span className="font-semibold text-green-600">€{p.paid.toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span>Prelievi/Incassi:</span> <span className="font-semibold text-red-600">€{p.collected.toFixed(2)}</span></div>
-                                    <div className="flex justify-between border-t pt-1 mt-1 font-bold">
-                                        <span>Saldo Netto:</span> 
-                                        <span>€{p.netBalance.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-500 pt-1">
-                                        <span>Diff. Media:</span> 
-                                        <span className={p.diff > 0 ? 'text-green-600' : 'text-red-600'}>{p.diff > 0 ? '+' : ''}{p.diff.toFixed(2)}</span>
-                                    </div>
+                                
+                                <div className={`p-2 rounded text-center text-xs font-bold uppercase ${
+                                    p.status === 'creditor' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                                    p.status === 'debtor' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                }`}>
+                                    {p.status === 'creditor' ? `Deve Ricevere €${p.diff.toFixed(2)}` : 
+                                     p.status === 'debtor' ? `Deve Versare €${Math.abs(p.diff).toFixed(2)}` : 
+                                     "Bilanciato"}
+                                </div>
+                                <div className="mt-4 flex justify-end">
+                                    <Button variant="ghost" size="sm" onClick={() => setSelectedPartner({id: p.id, name: p.name})}>Dettagli</Button>
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    {settlementPlan.length > 0 ? (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-800 mb-8">
-                            <h3 className="text-xl font-bold mb-4 text-blue-800 dark:text-blue-200 flex items-center"><ArrowRightLeft className="mr-2" /> Piano di Pareggiamento (Suggerito)</h3>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg border dark:border-gray-700">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold flex items-center"><ArrowRightLeft className="mr-2"/> Piano di Pareggiamento</h3>
+                             <Button variant="secondary" size="sm" onClick={() => setTransferModalOpen(true)}>Registra Trasferimento Manuale</Button>
+                        </div>
+                        
+                        {settlementPlan.length > 0 ? (
                             <div className="space-y-3">
                                 {settlementPlan.map((plan, idx) => (
-                                    <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white dark:bg-gray-800 p-3 rounded shadow-sm">
-                                        <div className="flex items-center space-x-2 mb-2 md:mb-0">
+                                    <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white dark:bg-gray-800 p-4 rounded shadow-sm border dark:border-gray-600">
+                                        <div className="flex items-center space-x-2 text-sm md:text-base">
                                             <span className="font-bold text-red-600">{plan.fromName}</span>
-                                            <span className="text-gray-500">deve versare a</span>
+                                            <span className="text-gray-400">versa a</span>
                                             <span className="font-bold text-green-600">{plan.toName}</span>
                                         </div>
-                                        <div className="flex items-center space-x-4">
-                                            <span className="text-lg font-bold">€{plan.amount.toFixed(2)}</span>
+                                        <div className="flex items-center mt-2 md:mt-0 space-x-4">
+                                            <span className="font-mono font-bold text-lg">€{plan.amount.toFixed(2)}</span>
                                             <Button size="sm" onClick={() => handleSettle(plan.fromId, plan.toId, plan.amount)}>Registra Pagamento</Button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-xs text-blue-600 dark:text-blue-300 mt-4">* Registrando il pagamento, il sistema aggiornerà i saldi di entrambi i soci per pareggiare i conti.</p>
-                        </div>
-                    ) : (
-                        <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg border border-green-200 dark:border-green-800 mb-8 text-center">
-                            <div className="flex justify-center mb-2"><Check className="text-green-600" size={32} /></div>
-                            <h3 className="text-xl font-bold text-green-800 dark:text-green-200">I conti sono perfettamente bilanciati!</h3>
-                            <p className="text-green-600 dark:text-green-300">Tutti i soci hanno contribuito o prelevato equamente rispetto alla media.</p>
-                        </div>
-                    )}
-
-                    <div className="flex justify-end">
-                         <Button variant="secondary" onClick={() => setIsArchiveConfirmOpen(true)}><Archive className="mr-2" size={16}/> Archivia Periodo / Resetta Saldi</Button>
+                        ) : (
+                            <p className="text-center text-gray-500 py-4">Tutti i soci sono bilanciati rispetto al target. Nessun movimento necessario.</p>
+                        )}
                     </div>
-                </>
-            )}
 
-            {activeTab === 'history' && (
-                <div className="overflow-x-auto">
-                    <Table headers={["Data", "Totale Bilancio", "Target/Socio", "Azioni"]}>
-                         {historySettlements.map(s => (
+                    <div className="flex justify-end space-x-4 mt-8 pt-6 border-t dark:border-gray-700">
+                        <Button variant="secondary" onClick={() => setPrintOverviewOpen(true)}><Printer className="mr-2 h-4 w-4"/> Stampa Riepilogo</Button>
+                        <Button variant="secondary" onClick={() => setPrintCompleteOpen(true)}><FileTextIcon className="mr-2 h-4 w-4"/> Report Completo (Tutti i Soci)</Button>
+                        <Button variant="danger" onClick={() => setIsArchiveConfirmOpen(true)}><Archive className="mr-2 h-4 w-4"/> Archivia e Azzera Periodo</Button>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                     <Table headers={["Data Chiusura", "Totale Sistema", "Target Socio", "Azioni"]}>
+                        {(yearData.partnerSettlements || []).map(s => (
                             <tr key={s.id}>
-                                <td className="px-6 py-4">{new Date(s.date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4">{new Date(s.date).toLocaleDateString()} {new Date(s.date).toLocaleTimeString()}</td>
                                 <td className="px-6 py-4">€{s.totalSystemBalance.toFixed(2)}</td>
-                                 <td className="px-6 py-4">€{s.targetPerPartner.toFixed(2)}</td>
-                                 <td className="px-6 py-4">
-                                    <Button variant="ghost" size="sm" onClick={() => setSelectedSettlement(s)}><Eye size={16} /></Button>
-                                 </td>
+                                <td className="px-6 py-4">€{s.targetPerPartner.toFixed(2)}</td>
+                                <td className="px-6 py-4">
+                                     <Button variant="ghost" size="sm" onClick={() => setSelectedSettlement(s)}><Eye size={16} /></Button>
+                                </td>
                             </tr>
-                         ))}
-                    </Table>
-                     {historySettlements.length === 0 && (
-                        <p className="text-center py-8 text-gray-500">Nessuna archiviazione storica presente.</p>
-                     )}
+                        ))}
+                     </Table>
+                     {(yearData.partnerSettlements || []).length === 0 && <p className="text-center p-8 text-gray-500">Nessuna chiusura archiviata.</p>}
                 </div>
             )}
 
@@ -1960,42 +2607,354 @@ const PartnerLedgerView: React.FC = () => {
             <SettlementDetailModal isOpen={!!selectedSettlement} onClose={() => setSelectedSettlement(null)} settlement={selectedSettlement} />
             
             <ConfirmDialog 
-                isOpen={isArchiveConfirmOpen}
-                onClose={() => setIsArchiveConfirmOpen(false)}
+                isOpen={isArchiveConfirmOpen} 
+                onClose={() => setIsArchiveConfirmOpen(false)} 
                 onConfirm={handleArchiveAndReset}
-                title="Archiviazione Periodo"
-                message="Sei sicuro di voler archiviare il periodo corrente? Verrà salvato uno snapshot dei saldi e verranno generate delle scritture contabili automatiche per azzerare i saldi di tutti i soci (ricominciando da zero)."
+                title="Archiviazione Periodo Contabile"
+                message="Questa operazione salverà lo stato attuale dei saldi nello storico e aggiungerà dei movimenti di compensazione per riportare il saldo di tutti i soci a ZERO. Continuare?"
             />
             
-            <PrintModal isOpen={isPrintOverviewOpen} onClose={() => setPrintOverviewOpen(false)} title="Stampa Panoramica Soci" documentName={`saldi_soci_${new Date().toISOString().split('T')[0]}`}>
-                <PrintablePartnerOverview stats={partnerStats.stats} totalSystemBalance={partnerStats.totalSystemBalance} companyInfo={settings.companyInfo} settlementPlan={settlementPlan} />
-            </PrintModal>
-
-            <PrintModal isOpen={isPrintCompleteOpen} onClose={() => setPrintCompleteOpen(false)} title="Stampa Report Completo Soci" documentName={`report_soci_completo_${new Date().toISOString().split('T')[0]}`}>
-                <PrintableCompletePartnerReport 
+            <PrintModal isOpen={isPrintOverviewOpen} onClose={() => setPrintOverviewOpen(false)} title="Stampa Riepilogo Soci" documentName={`riepilogo_soci_${new Date().toISOString().split('T')[0]}`}>
+                <PrintablePartnerOverview 
                     stats={partnerStats.stats} 
                     totalSystemBalance={partnerStats.totalSystemBalance} 
                     companyInfo={settings.companyInfo} 
-                    settlementPlan={settlementPlan}
-                    partners={state.partners}
-                    ledgerEntries={yearData.partnerLedger || []}
+                    settlementPlan={settlementPlan} 
                 />
             </PrintModal>
+
+            <PrintModal isOpen={isPrintCompleteOpen} onClose={() => setPrintCompleteOpen(false)} title="Report Completo Soci" documentName={`report_completo_${new Date().toISOString().split('T')[0]}`}>
+                <PrintableCompletePartnerReport 
+                    stats={partnerStats.stats} 
+                    totalSystemBalance={partnerStats.totalSystemBalance} 
+                    settlementPlan={settlementPlan} 
+                    partners={state.partners} 
+                    ledgerEntries={yearData.partnerLedger} 
+                    companyInfo={settings.companyInfo} 
+                />
+            </PrintModal>
+
+            <PartnerTransferModal isOpen={isTransferModalOpen} onClose={() => setTransferModalOpen(false)} />
+        </Card>
+    );
+};
+
+// --- VISTE MANCANTI ---
+
+const CustomersView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
+    const [isModalOpen, setModalOpen] = useState(false);
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const [formData, setFormData] = useState<Omit<Customer, 'id'>>({
+        name: '', address: '', city: '', zip: '', province: '', phone: '', email: '', vatNumber: '', sdi: '', agentId: ''
+    });
+
+    useEffect(() => {
+        if (editingCustomer) {
+            const { id, ...rest } = editingCustomer;
+            setFormData(rest);
+        } else {
+            setFormData({ name: '', address: '', city: '', zip: '', province: '', phone: '', email: '', vatNumber: '', sdi: '', agentId: '' });
+        }
+    }, [editingCustomer]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (editingCustomer) {
+            dispatch({ type: 'UPDATE_CUSTOMER', payload: { id: editingCustomer.id, ...formData } });
+        } else {
+            dispatch({ type: 'ADD_CUSTOMER', payload: formData });
+        }
+        setModalOpen(false);
+        setEditingCustomer(null);
+    };
+
+    const handleDelete = (id: string) => {
+        if (confirm("Eliminare questo cliente?")) dispatch({ type: 'DELETE_CUSTOMER', payload: id });
+    };
+
+    const filteredCustomers = yearData.customers.filter(c => 
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        c.city.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <Card title="Rubrica Clienti">
+            <div className="flex justify-between mb-4">
+                <Input placeholder="Cerca cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="max-w-xs" />
+                <Button onClick={() => { setEditingCustomer(null); setModalOpen(true); }}><PlusCircle className="mr-2 h-4 w-4"/> Nuovo Cliente</Button>
+            </div>
+            <Table headers={["Nome", "Città", "Telefono", "Email", "Agente", "Azioni"]}>
+                {filteredCustomers.map(c => (
+                    <tr key={c.id}>
+                        <td className="px-6 py-4 font-medium">{c.name}</td>
+                        <td className="px-6 py-4 text-sm">{c.city} ({c.province})</td>
+                        <td className="px-6 py-4 text-sm">{c.phone}</td>
+                        <td className="px-6 py-4 text-sm">{c.email}</td>
+                        <td className="px-6 py-4 text-sm">{yearData.agents.find(a => a.id === c.agentId)?.name || '-'}</td>
+                        <td className="px-6 py-4 space-x-2">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingCustomer(c); setModalOpen(true); }}><Edit size={16}/></Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 size={16}/></Button>
+                        </td>
+                    </tr>
+                ))}
+            </Table>
+            <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title={editingCustomer ? "Modifica Cliente" : "Nuovo Cliente"}>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input label="Ragione Sociale / Nome" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    <Input label="Indirizzo" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                    <div className="grid grid-cols-3 gap-2">
+                        <Input label="Città" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="col-span-2"/>
+                        <Input label="Prov." value={formData.province} onChange={e => setFormData({...formData, province: e.target.value})} />
+                    </div>
+                    <Input label="CAP" value={formData.zip} onChange={e => setFormData({...formData, zip: e.target.value})} />
+                    <Input label="P.IVA / CF" value={formData.vatNumber} onChange={e => setFormData({...formData, vatNumber: e.target.value})} />
+                    <Input label="Codice SDI / PEC" value={formData.sdi} onChange={e => setFormData({...formData, sdi: e.target.value})} />
+                    <Input label="Telefono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <Input label="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} type="email" />
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Agente di Riferimento</label>
+                        <select className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" value={formData.agentId} onChange={e => setFormData({...formData, agentId: e.target.value})}>
+                            <option value="">Nessun Agente</option>
+                            {yearData.agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex justify-end pt-4">
+                        <Button type="submit">Salva</Button>
+                    </div>
+                </form>
+            </Modal>
+        </Card>
+    );
+};
+
+const SuppliersView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
+    const [isModalOpen, setModalOpen] = useState(false);
+    const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+    const [formData, setFormData] = useState<Omit<Supplier, 'id'>>({ name: '', address: '', city: '', phone: '', email: '', vatNumber: '' });
+
+    useEffect(() => {
+        if (editingSupplier) {
+            const { id, ...rest } = editingSupplier;
+            setFormData(rest);
+        } else {
+            setFormData({ name: '', address: '', city: '', phone: '', email: '', vatNumber: '' });
+        }
+    }, [editingSupplier]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (editingSupplier) {
+            dispatch({ type: 'UPDATE_SUPPLIER', payload: { id: editingSupplier.id, ...formData } });
+        } else {
+            dispatch({ type: 'ADD_SUPPLIER', payload: formData });
+        }
+        setModalOpen(false);
+        setEditingSupplier(null);
+    };
+
+    const handleDelete = (id: string) => { if (confirm("Eliminare fornitore?")) dispatch({ type: 'DELETE_SUPPLIER', payload: id }); };
+
+    return (
+        <Card title="Fornitori">
+            <div className="flex justify-end mb-4">
+                <Button onClick={() => { setEditingSupplier(null); setModalOpen(true); }}><PlusCircle className="mr-2 h-4 w-4"/> Nuovo Fornitore</Button>
+            </div>
+            <Table headers={["Ragione Sociale", "Città", "Contatti", "P.IVA", "Azioni"]}>
+                {yearData.suppliers.map(s => (
+                    <tr key={s.id}>
+                        <td className="px-6 py-4 font-medium">{s.name}</td>
+                        <td className="px-6 py-4 text-sm">{s.city}</td>
+                        <td className="px-6 py-4 text-sm">{s.email}<br/>{s.phone}</td>
+                        <td className="px-6 py-4 text-sm">{s.vatNumber}</td>
+                        <td className="px-6 py-4 space-x-2">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingSupplier(s); setModalOpen(true); }}><Edit size={16}/></Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(s.id)} className="text-red-500"><Trash2 size={16}/></Button>
+                        </td>
+                    </tr>
+                ))}
+            </Table>
+            <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title={editingSupplier ? "Modifica Fornitore" : "Nuovo Fornitore"}>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input label="Ragione Sociale" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    <Input label="Indirizzo" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                    <Input label="Città" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                    <Input label="P.IVA" value={formData.vatNumber} onChange={e => setFormData({...formData, vatNumber: e.target.value})} />
+                    <Input label="Telefono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <Input label="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} type="email" />
+                    <div className="flex justify-end pt-4">
+                        <Button type="submit">Salva</Button>
+                    </div>
+                </form>
+            </Modal>
+        </Card>
+    );
+};
+
+const AgentsView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
+    const [isModalOpen, setModalOpen] = useState(false);
+    const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+    const [formData, setFormData] = useState<Omit<Agent, 'id'|'associatedClients'>>({ name: '', city: '', phone: '' });
+
+    useEffect(() => {
+        if (editingAgent) {
+            setFormData({ name: editingAgent.name, city: editingAgent.city, phone: editingAgent.phone });
+        } else {
+            setFormData({ name: '', city: '', phone: '' });
+        }
+    }, [editingAgent]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (editingAgent) {
+            dispatch({ type: 'UPDATE_AGENT', payload: { id: editingAgent.id, ...formData, associatedClients: editingAgent.associatedClients } });
+        } else {
+            dispatch({ type: 'ADD_AGENT', payload: formData });
+        }
+        setModalOpen(false);
+        setEditingAgent(null);
+    };
+
+    const handleDelete = (id: string) => { if (confirm("Eliminare agente?")) dispatch({ type: 'DELETE_AGENT', payload: id }); };
+
+    return (
+        <Card title="Agenti di Commercio">
+            <div className="flex justify-end mb-4">
+                <Button onClick={() => { setEditingAgent(null); setModalOpen(true); }}><PlusCircle className="mr-2 h-4 w-4"/> Nuovo Agente</Button>
+            </div>
+            <Table headers={["Nome", "Zona/Città", "Telefono", "Clienti Associati", "Azioni"]}>
+                {yearData.agents.map(a => (
+                    <tr key={a.id}>
+                        <td className="px-6 py-4 font-medium">{a.name}</td>
+                        <td className="px-6 py-4 text-sm">{a.city}</td>
+                        <td className="px-6 py-4 text-sm">{a.phone}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-center">{a.associatedClients}</td>
+                        <td className="px-6 py-4 space-x-2">
+                            <Button variant="ghost" size="sm" onClick={() => { setEditingAgent(a); setModalOpen(true); }}><Edit size={16}/></Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-red-500"><Trash2 size={16}/></Button>
+                        </td>
+                    </tr>
+                ))}
+            </Table>
+            <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title={editingAgent ? "Modifica Agente" : "Nuovo Agente"}>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input label="Nome e Cognome" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    <Input label="Zona / Città" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                    <Input label="Telefono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <div className="flex justify-end pt-4">
+                        <Button type="submit">Salva</Button>
+                    </div>
+                </form>
+            </Modal>
+        </Card>
+    );
+};
+
+const StockLoadHistoryView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
+    const [viewLoad, setViewLoad] = useState<StockLoad | null>(null);
+    const [editLoad, setEditLoad] = useState<StockLoad | null>(null);
+    const [printLoad, setPrintLoad] = useState<StockLoad | null>(null);
+
+    // Mapped for sort
+    const mappedLoads = useMemo(() => {
+        return yearData.stockLoads.map(sl => {
+            const supplier = yearData.suppliers.find(s => s.id === sl.supplierId);
+            return {
+                ...sl,
+                supplierName: supplier ? supplier.name : 'Deposito / Interno',
+                shortId: sl.id.substring(0,8).toUpperCase()
+            };
+        });
+    }, [yearData.stockLoads, yearData.suppliers]);
+
+    const { items: sortedLoads, requestSort, sortConfig } = useSortableData(mappedLoads);
+
+    const allVariants = useMemo(() => {
+        return yearData.productVariants.map(variant => {
+            const product = yearData.products.find(p => p.id === variant.productId);
+            return { ...variant, productName: product?.name || 'N/A' };
+        });
+    }, [yearData]);
+
+    return (
+        <Card title="Storico Carichi">
+            <Table headers={[
+                <SortHeader label="Numero / Data" sortKey="date" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Fornitore" sortKey="supplierName" currentSort={sortConfig} onSort={requestSort} />,
+                <SortHeader label="Totale" sortKey="total" currentSort={sortConfig} onSort={requestSort} />,
+                "Azioni"
+            ]}>
+                {sortedLoads.map(sl => (
+                    <tr key={sl.id}>
+                        <td className="px-6 py-4">
+                            <span className="block font-mono font-bold text-xs text-gray-500">#{sl.shortId}</span>
+                            <span>{new Date(sl.date).toLocaleDateString()}</span>
+                        </td>
+                        <td className="px-6 py-4">{sl.supplierName}</td>
+                        <td className="px-6 py-4">€{sl.total.toFixed(2)}</td>
+                        <td className="px-6 py-4 space-x-2 flex">
+                            <Button variant="ghost" size="sm" onClick={() => setViewLoad(sl)}><Eye size={16}/></Button>
+                            <Button variant="ghost" size="sm" onClick={() => setEditLoad(sl)}><Edit size={16}/></Button>
+                            <Button variant="ghost" size="sm" onClick={() => setPrintLoad(sl)}><Printer size={16}/></Button>
+                            <Button variant="ghost" size="sm" className="text-red-500" onClick={() => { if(confirm("Eliminare questo carico? I lotti associati verranno rimossi.")) dispatch({ type: 'DELETE_STOCK_LOAD', payload: sl.id }) }}><Trash2 size={16}/></Button>
+                        </td>
+                    </tr>
+                ))}
+            </Table>
+            <StockLoadDetailModal isOpen={!!viewLoad} onClose={() => setViewLoad(null)} load={viewLoad} />
+            <EditStockLoadModal isOpen={!!editLoad} onClose={() => setEditLoad(null)} load={editLoad} />
+            {printLoad && (
+                <PrintModal isOpen={!!printLoad} onClose={() => setPrintLoad(null)} title="Stampa Carico" documentName={`carico_${printLoad.id}`}>
+                    <PrintableStockLoad 
+                        load={printLoad} 
+                        supplier={yearData.suppliers.find(s => s.id === printLoad.supplierId)}
+                        allVariants={allVariants}
+                        companyInfo={settings.companyInfo}
+                    />
+                </PrintModal>
+            )}
         </Card>
     );
 };
 
 const ArchivesView: React.FC = () => {
+    const { state, settings, updateSettings } = useAppContext();
+    const availableYears = Object.keys(state).filter(k => !isNaN(Number(k))).map(Number).sort((a,b) => b-a);
+
     return (
-        <Card title="Archivi Storici">
-            <div className="text-center py-12 text-gray-500">
-                <Archive size={48} className="mx-auto mb-4 opacity-30" />
-                <p>Funzionalità Archivi Storici in arrivo.</p>
-                <p className="text-sm">Qui potrai consultare i dati degli anni passati.</p>
+        <Card title="Archivi Anni Precedenti">
+            <p className="mb-4 text-gray-600">Seleziona l'anno fiscale su cui vuoi operare o consultare i dati.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {availableYears.map(year => (
+                    <button
+                        key={year}
+                        onClick={() => updateSettings({ currentYear: year })}
+                        className={`p-6 rounded-lg border text-center transition-all ${
+                            settings.currentYear === year 
+                            ? 'bg-primary-50 border-primary-500 ring-2 ring-primary-500' 
+                            : 'bg-white hover:bg-gray-50 border-gray-200'
+                        }`}
+                    >
+                        <Archive size={32} className={`mx-auto mb-2 ${settings.currentYear === year ? 'text-primary-600' : 'text-gray-400'}`} />
+                        <span className={`block text-xl font-bold ${settings.currentYear === year ? 'text-primary-700' : 'text-gray-700'}`}>{year}</span>
+                        {settings.currentYear === year && <span className="text-xs text-primary-600 font-medium">Attivo</span>}
+                    </button>
+                ))}
             </div>
         </Card>
     );
 };
+
+// --- MAIN SWITCHER ---
 
 export const MainViews: React.FC<{ view: View }> = ({ view }) => {
     switch (view) {
