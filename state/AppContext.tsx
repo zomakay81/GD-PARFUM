@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useReducer, useMemo, useCallback } from 'react';
-import type { AppState, Settings, YearData, View, Customer, Supplier, Agent, Partner, Product, StockLoad, StockLoadItem, Category, Sale, Quote, DocumentItem, ProductVariant, PartnerLedgerEntry, Production, InventoryBatch, ProductionComponent, CompanyInfo, PartnerSettlement, SalePayment } from '../types';
+import type { AppState, Settings, YearData, View, Customer, Supplier, Agent, Partner, Product, StockLoad, StockLoadItem, Category, Sale, Quote, DocumentItem, ProductVariant, PartnerLedgerEntry, Production, InventoryBatch, ProductionComponent, CompanyInfo, PartnerSettlement, SalePayment, Expense } from '../types';
 import { produce } from 'immer';
 import { v4 as uuidv4 } from 'uuid';
+import { VAT_RATE } from '../constants';
 
 // --- TIPI DI AZIONE ---
 type Action =
@@ -63,7 +64,17 @@ type Action =
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
   | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string } }
-  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement };
+  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
+  // Azioni Spese
+  | { type: 'ADD_EXPENSE'; payload: Expense }
+  | { type: 'UPDATE_EXPENSE'; payload: Expense }
+  | { type: 'DELETE_EXPENSE'; payload: string }
+  // Azioni Ordini
+  | { type: 'ADD_ORDER'; payload: Order }
+  | { type: 'UPDATE_ORDER'; payload: Order }
+  | { type: 'DELETE_ORDER'; payload: string }
+  | { type: 'TOGGLE_ORDER_ITEM_PREPARED'; payload: { orderId: string, itemId: string } }
+  | { type: 'CONVERT_ORDER_TO_SALE'; payload: string };
 
 
 // --- STATO INIZIALE ---
@@ -76,7 +87,7 @@ const getInitialYearData = (): YearData => ({
       { id: uuidv4(), name: "Prodotto Finito", isComponent: false, isFinishedProduct: true },
       { id: uuidv4(), name: "Semilavorato (Sfuso)", isComponent: true, isFinishedProduct: true },
   ],
-  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: []
+  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: [], expenses: [], orders: []
 });
 
 const getDefaultCompanyInfo = (): CompanyInfo => ({
@@ -441,7 +452,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : taxable;
 
         const newLoad: StockLoad = { id: uuidv4(), ...action.payload, total };
         yearData.stockLoads.push(newLoad);
@@ -663,7 +674,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : total;
         
         for (const item of items) {
             // Check against AVAILABLE quantity, not total
@@ -859,7 +870,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : total;
 
         const newQuote: Quote = { 
             id: uuidv4(), 
@@ -1011,6 +1022,140 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           });
           break;
       }
+
+      // --- SPESE ---
+      case 'ADD_EXPENSE': {
+          const expense = action.payload;
+          yearData.expenses.push(expense);
+          if (expense.paidByPartnerId) {
+              yearData.partnerLedger.push({
+                  id: uuidv4(),
+                  date: expense.date,
+                  description: `Spesa: ${expense.description}`,
+                  amount: -expense.total,
+                  partnerId: expense.paidByPartnerId,
+                  relatedDocumentId: expense.id
+              });
+          }
+          break;
+      }
+      case 'UPDATE_EXPENSE': {
+          const expense = action.payload;
+          const index = yearData.expenses.findIndex(e => e.id === expense.id);
+          if (index !== -1) {
+              yearData.expenses[index] = expense;
+
+              const ledgerEntryIndex = yearData.partnerLedger.findIndex(e => e.relatedDocumentId === expense.id);
+              if (expense.paidByPartnerId) {
+                  if (ledgerEntryIndex !== -1) {
+                      const entry = yearData.partnerLedger[ledgerEntryIndex];
+                      entry.date = expense.date;
+                      entry.description = `Spesa: ${expense.description}`;
+                      entry.amount = -expense.total;
+                      entry.partnerId = expense.paidByPartnerId;
+                  } else {
+                      yearData.partnerLedger.push({
+                          id: uuidv4(),
+                          date: expense.date,
+                          description: `Spesa: ${expense.description}`,
+                          amount: -expense.total,
+                          partnerId: expense.paidByPartnerId,
+                          relatedDocumentId: expense.id
+                      });
+                  }
+              } else if (ledgerEntryIndex !== -1) {
+                  yearData.partnerLedger.splice(ledgerEntryIndex, 1);
+              }
+          }
+          break;
+      }
+      case 'DELETE_EXPENSE': {
+          const expenseId = action.payload;
+          yearData.expenses = yearData.expenses.filter(e => e.id !== expenseId);
+          yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== expenseId);
+          break;
+      }
+
+      // --- ORDINI CLIENTI ---
+        case 'ADD_ORDER':
+            yearData.orders.push(action.payload);
+            break;
+        case 'UPDATE_ORDER': {
+            const index = yearData.orders.findIndex(o => o.id === action.payload.id);
+            if (index !== -1) {
+                yearData.orders[index] = action.payload;
+            }
+            break;
+        }
+        case 'DELETE_ORDER':
+            yearData.orders = yearData.orders.filter(o => o.id !== action.payload);
+            break;
+        case 'TOGGLE_ORDER_ITEM_PREPARED': {
+            const { orderId, itemId } = action.payload;
+            const order = yearData.orders.find(o => o.id === orderId);
+            if (order) {
+                const item = order.items.find(i => i.variantId === itemId);
+                if (item) {
+                    item.prepared = !item.prepared;
+                }
+            }
+            break;
+        }
+        case 'CONVERT_ORDER_TO_SALE': {
+            const orderId = action.payload;
+            const order = yearData.orders.find(o => o.id === orderId);
+            if (order && order.status === 'in-preparazione' && order.items.every(i => i.prepared)) {
+
+                //
+                // Same inventory check as in ADD_SALE
+                //
+                for (const item of order.items) {
+                    const totalAvailable = getVariantAvailableQuantity(item.variantId, yearData.inventoryBatches);
+                    if (totalAvailable < item.quantity) {
+                        const variant = yearData.productVariants.find(v => v.id === item.variantId);
+                        const product = yearData.products.find(p => p.id === variant?.productId);
+                        alert(`Quantità DISPONIBILE insufficiente per ${product?.name || 'sconosciuto'} - ${variant?.name || ''}. Richiesti: ${item.quantity}, Disponibili: ${totalAvailable}`);
+                        return; // Stop conversion
+                    }
+                }
+
+                //
+                // Same inventory consumption logic as in ADD_SALE
+                //
+                order.items.forEach(item => {
+                    const sortedBatches = getSortedBatches(item.variantId, yearData.inventoryBatches, true);
+                    let remainingToTake = item.quantity;
+                    for (const batch of sortedBatches) {
+                        if (remainingToTake <= 0) break;
+                        const takeFromThisBatch = Math.min(batch.currentQuantity, remainingToTake);
+                        batch.currentQuantity -= takeFromThisBatch;
+                        remainingToTake -= takeFromThisBatch;
+                    }
+                });
+
+                // Create the new Sale
+                const newSale: Sale = {
+                    id: uuidv4(),
+                    date: new Date().toISOString().split('T')[0],
+                    customerId: order.customerId,
+                    items: order.items.map(({ prepared, ...item }) => item), // Remove 'prepared' flag
+                    subtotal: order.subtotal,
+                    vatApplied: order.vatApplied,
+                    total: order.total,
+                    type: 'vendita',
+                    payments: [],
+                    discountValue: order.discountValue,
+                    discountType: order.discountType,
+                    shippingCost: order.shippingCost,
+                    // Note: 'notes' from order could be transferred here if Sale type is updated to support it
+                };
+                yearData.sales.push(newSale);
+
+                // Mark the order as completed
+                order.status = 'completato';
+            }
+            break;
+        }
     }
   });
 };
