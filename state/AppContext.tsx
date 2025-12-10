@@ -58,6 +58,7 @@ type Action =
   | { type: 'ADD_QUOTE'; payload: Omit<Quote, 'id' | 'total' | 'subtotal' | 'type' | 'status'> }
   | { type: 'DELETE_QUOTE'; payload: string }
   | { type: 'CONVERT_QUOTE_TO_SALE'; payload: string }
+  | { type: 'COLLECT_QUOTE'; payload: { quoteId: string; partnerId: string; date: string; amount: number } }
   // Azioni Mastro Soci
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
@@ -768,6 +769,33 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         break;
       }
+      case 'COLLECT_QUOTE': {
+        const { quoteId, partnerId, date, amount } = action.payload;
+        const quote = yearData.quotes.find(q => q.id === quoteId);
+        if (quote) {
+            if (!quote.payments) quote.payments = [];
+            quote.payments.push({
+                id: uuidv4(),
+                date,
+                amount,
+                partnerId
+            });
+
+            const customerName = yearData.customers.find(c => c.id === quote.customerId)?.name || 'Sconosciuto';
+            const shortId = quote.id.substring(0, 8).toUpperCase();
+            
+            const ledgerEntry: PartnerLedgerEntry = {
+                id: uuidv4(),
+                date: date,
+                description: `Acconto/Incasso Preventivo ${customerName} (Prev #${shortId})`,
+                amount: amount,
+                partnerId: partnerId,
+                relatedDocumentId: quote.id,
+            };
+            yearData.partnerLedger.push(ledgerEntry);
+        }
+        break;
+      }
       
       case 'BULK_COLLECT_SALES': {
             const { collections, partnerId, date } = action.payload;
@@ -839,13 +867,17 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             subtotal, 
             total,
             type: 'preventivo',
-            status: 'aperto'
+            status: 'aperto',
+            payments: []
         };
         yearData.quotes.push(newQuote);
         break;
       }
       case 'DELETE_QUOTE': {
-          yearData.quotes = yearData.quotes.filter(q => q.id !== action.payload);
+          const quoteId = action.payload;
+          // Rimuove eventuali incassi collegati al preventivo dal mastro
+          yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== quoteId);
+          yearData.quotes = yearData.quotes.filter(q => q.id !== quoteId);
           break;
       }
       case 'CONVERT_QUOTE_TO_SALE': {
@@ -874,6 +906,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                 }
             });
 
+            // Crea la nuova vendita trasferendo eventuali pagamenti già effettuati sul preventivo
             const newSale: Sale = {
                 id: uuidv4(),
                 date: new Date().toISOString().split('T')[0],
@@ -883,7 +916,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                 vatApplied: quote.vatApplied,
                 total: quote.total,
                 type: 'vendita',
-                payments: [],
+                payments: quote.payments || [], // Trasferisce gli acconti
                 discountValue: quote.discountValue,
                 discountType: quote.discountType,
                 shippingCost: quote.shippingCost

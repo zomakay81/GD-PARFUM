@@ -190,6 +190,7 @@ export interface Quote {
   discountValue?: number;
   discountType?: 'amount' | 'percentage';
   shippingCost?: number;
+  payments?: SalePayment[]; // Aggiunto per gestione acconti/saldi su preventivi
 }
 
 export interface PartnerLedgerEntry {
