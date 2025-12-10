@@ -109,36 +109,13 @@ const getInitialState = (): { state: AppState; settings: Settings } => {
     if (!initialState[currentYear]) {
         initialState[currentYear] = getInitialYearData();
     }
-     if (!initialState[currentYear].categories) {
-        initialState[currentYear].categories = getInitialYearData().categories;
-    }
-    if (!initialState[currentYear].sales) {
-        initialState[currentYear].sales = [];
-    }
-    if (!initialState[currentYear].quotes) {
-        initialState[currentYear].quotes = [];
-    }
-    if (!initialState[currentYear].productVariants) {
-        initialState[currentYear].productVariants = [];
-    }
-    if (!initialState[currentYear].inventoryBatches) {
-        initialState[currentYear].inventoryBatches = [];
-    }
-     if (!initialState[currentYear].partnerLedger) {
-        initialState[currentYear].partnerLedger = [];
-    }
-    if (!initialState[currentYear].productions) {
-        initialState[currentYear].productions = [];
-    }
-    if (!initialState[currentYear].partnerSettlements) {
-        initialState[currentYear].partnerSettlements = [];
-    }
-    if (!initialState[currentYear].expenses) {
-        initialState[currentYear].expenses = [];
-    }
-    if (!initialState[currentYear].orders) {
-        initialState[currentYear].orders = [];
-    }
+    // Comprehensive check to ensure all data arrays are initialized
+    const defaultYearData = getInitialYearData();
+    (Object.keys(defaultYearData) as Array<keyof YearData>).forEach(key => {
+        if (!initialState[currentYear][key]) {
+             initialState[currentYear][key] = defaultYearData[key] as any;
+        }
+    });
     
     // Migration: ensure batches have status
     Object.keys(initialState).forEach(key => {
