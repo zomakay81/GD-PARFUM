@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { View } from '../types';
-import { LayoutDashboard, ShoppingCart, FileText, History, Users, Building, UserCheck, Package, PackagePlus, Factory, Archive, Scale, Wine, ClipboardList, BookOpen } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, FileText, History, Users, Building, UserCheck, Package, PackagePlus, Factory, Archive, Scale, Wine, ClipboardList, BookOpen, CreditCard } from 'lucide-react';
 
 export const navItems = [
     { view: 'dashboard', label: 'Home', icon: LayoutDashboard, color: 'from-gray-700 to-gray-900', description: 'Panoramica' },
@@ -20,6 +20,8 @@ export const navItems = [
     { view: 'stock-load-history', label: 'Storico Carichi', icon: ClipboardList, color: 'from-lime-600 to-lime-800', description: 'Archivio' },
     { view: 'production-history', label: 'Storico Prod.', icon: History, color: 'from-rose-700 to-rose-900', description: 'Archivio' },
     { view: 'partner-ledger', label: 'Soci', icon: Scale, color: 'from-violet-500 to-purple-700', description: 'Contabilità' },
+    { view: 'spese', label: 'Spese', icon: CreditCard, color: 'from-red-500 to-orange-700', description: 'Spese' },
+    { view: 'ordini-clienti', label: 'Ordini Clienti', icon: ClipboardList, color: 'from-yellow-500 to-amber-700', description: 'Ordini' },
     { view: 'archives', label: 'Archivi', icon: Archive, color: 'from-gray-500 to-gray-700', description: 'Anni passati' },
 ];
 

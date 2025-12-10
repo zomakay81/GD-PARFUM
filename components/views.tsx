@@ -8,6 +8,8 @@ import { PlusCircle, Edit, Trash2, Check, X, DollarSign, Layers, ArrowUpDown, Im
 import { v4 as uuidv4 } from 'uuid';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { SpeseView } from './Spese';
+import { OrdiniClientiView } from './OrdiniClienti';
 
 // --- UTILS PER ORDINAMENTO ---
 const SortHeader = ({ label, sortKey, currentSort, onSort }: { label: string, sortKey: string, currentSort: { key: string, direction: string }, onSort: (key: string) => void }) => (
@@ -3325,6 +3327,8 @@ export const MainViews: React.FC<{ view: View }> = ({ view }) => {
         case 'cellar': return <CellarView />;
         case 'partner-ledger': return <PartnerLedgerView />;
         case 'catalog': return <CatalogView />;
+        case 'spese': return <SpeseView />;
+        case 'ordini-clienti': return <OrdiniClientiView />;
         case 'archives': return (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <Archive size={64} className="mb-4 text-gray-300" />
