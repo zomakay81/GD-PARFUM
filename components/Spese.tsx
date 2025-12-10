@@ -10,7 +10,8 @@ import { VAT_RATE } from '../constants';
 export const SpeseView: React.FC = () => {
     const { state, dispatch, settings } = useAppContext();
     const yearData = state[settings.currentYear];
-    const { expenses, suppliers, partners } = yearData;
+    const { expenses, suppliers } = yearData;
+    const { partners } = state;
 
     const [isModalOpen, setModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
