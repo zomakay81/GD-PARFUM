@@ -133,6 +133,12 @@ const getInitialState = (): { state: AppState; settings: Settings } => {
     if (!initialState[currentYear].partnerSettlements) {
         initialState[currentYear].partnerSettlements = [];
     }
+    if (!initialState[currentYear].expenses) {
+        initialState[currentYear].expenses = [];
+    }
+    if (!initialState[currentYear].orders) {
+        initialState[currentYear].orders = [];
+    }
     
     // Migration: ensure batches have status
     Object.keys(initialState).forEach(key => {
