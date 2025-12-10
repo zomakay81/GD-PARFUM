@@ -3332,6 +3332,313 @@ export const MainViews: React.FC<{ view: View }> = ({ view }) => {
                 <p>Funzionalità per consultare gli anni passati in arrivo.</p>
             </div>
         );
+        case 'expenses': return <ExpensesView />;
+        case 'customer-orders': return <CustomerOrdersView />;
         default: return <div>Vista non trovata: {view}</div>;
     }
+};
+
+const CustomerOrdersView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const { customerOrders, customers, productVariants, products } = state[settings.currentYear];
+    const [isModalOpen, setModalOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<CustomerOrder | null>(null);
+
+    const openModal = (order: CustomerOrder | null = null) => {
+        setEditingOrder(order);
+        setModalOpen(true);
+    };
+
+    const handleDelete = (id: string) => {
+        if (confirm('Sei sicuro di voler eliminare questo ordine?')) {
+            dispatch({ type: 'DELETE_CUSTOMER_ORDER', payload: id });
+        }
+    };
+
+    const handleConvertToSale = (order: CustomerOrder) => {
+        if (confirm('Sei sicuro di voler convertire questo ordine in una vendita?')) {
+            dispatch({ type: 'CONVERT_ORDER_TO_SALE', payload: order.id });
+        }
+    };
+
+    const allItemsPrepared = (order: CustomerOrder) => {
+        return order.items.every(item => item.prepared);
+    };
+
+    return (
+        <Card title="Gestione Ordini Clienti">
+            <div className="flex justify-end mb-4">
+                <Button onClick={() => openModal()}><PlusCircle className="mr-2" size={16}/>Aggiungi Ordine</Button>
+            </div>
+            <Table headers={["Data", "Cliente", "Totale", "Stato", "Azioni"]}>
+                {customerOrders.map(order => {
+                    const customer = customers.find(c => c.id === order.customerId);
+                    return (
+                        <tr key={order.id}>
+                            <td className="px-6 py-4">{new Date(order.date).toLocaleDateString()}</td>
+                            <td className="px-6 py-4">{customer?.name || 'N/A'}</td>
+                            <td className="px-6 py-4">€{order.total.toFixed(2)}</td>
+                            <td className="px-6 py-4">{order.status}</td>
+                            <td className="px-6 py-4 space-x-2">
+                                <Button variant="ghost" size="sm" onClick={() => openModal(order)}><Edit size={16}/></Button>
+                                {allItemsPrepared(order) && (
+                                    <Button variant="ghost" size="sm" className="text-green-500" onClick={() => handleConvertToSale(order)}>Converti in Vendita</Button>
+                                )}
+                                <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDelete(order.id)}><Trash2 size={16}/></Button>
+                            </td>
+                        </tr>
+                    );
+                })}
+            </Table>
+            <CustomerOrderModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} order={editingOrder} />
+        </Card>
+    );
+};
+
+const CustomerOrderModal: React.FC<{ isOpen: boolean, onClose: () => void, order: CustomerOrder | null }> = ({ isOpen, onClose, order }) => {
+    const { state, settings, dispatch } = useAppContext();
+    const { customers, productVariants, products } = state[settings.currentYear];
+    const [formData, setFormData] = useState<Omit<CustomerOrder, 'id' | 'type' | 'status'>>({
+        date: new Date().toISOString().split('T')[0],
+        customerId: '',
+        items: [],
+        subtotal: 0,
+        vatApplied: true,
+        total: 0,
+    });
+
+    useEffect(() => {
+        if (order) {
+            setFormData(order);
+        } else {
+            setFormData({
+                date: new Date().toISOString().split('T')[0],
+                customerId: '',
+                items: [],
+                subtotal: 0,
+                vatApplied: true,
+                total: 0,
+            });
+        }
+    }, [order, isOpen]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleItemChange = (index: number, field: keyof CustomerOrderItem, value: any) => {
+        const newItems = [...formData.items];
+        (newItems[index] as any)[field] = value;
+        setFormData(prev => ({ ...prev, items: newItems }));
+    };
+
+    const addItem = () => {
+        setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, { variantId: '', quantity: 1, price: 0, prepared: false }]
+        }));
+    };
+
+    const removeItem = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            items: prev.items.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (order) {
+            dispatch({ type: 'UPDATE_CUSTOMER_ORDER', payload: { ...formData, id: order.id } });
+        } else {
+            dispatch({ type: 'ADD_CUSTOMER_ORDER', payload: formData });
+        }
+        onClose();
+    };
+
+    useEffect(() => {
+        const subtotal = formData.items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+        const total = formData.vatApplied ? subtotal * 1.22 : subtotal;
+        setFormData(prev => ({ ...prev, subtotal, total }));
+    }, [formData.items, formData.vatApplied]);
+
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={order ? 'Modifica Ordine Cliente' : 'Aggiungi Ordine Cliente'}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <Input label="Data" name="date" type="date" value={formData.date} onChange={handleChange} required />
+                <div>
+                    <label className="block text-sm font-medium mb-1">Cliente</label>
+                    <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+                        <option value="">Seleziona Cliente</option>
+                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center">
+                    <input type="checkbox" name="vatApplied" checked={formData.vatApplied} onChange={e => setFormData(prev => ({...prev, vatApplied: e.target.checked}))} />
+                    <label className="ml-2">Applica IVA 22%</label>
+                </div>
+
+                <div className="space-y-2">
+                    {formData.items.map((item, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                            <input type="checkbox" checked={item.prepared} onChange={e => handleItemChange(index, 'prepared', e.target.checked)} />
+                            <select value={item.variantId} onChange={e => handleItemChange(index, 'variantId', e.target.value)} className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+                                <option value="">Seleziona Prodotto</option>
+                                {productVariants.map(v => {
+                                    const p = products.find(p => p.id === v.productId);
+                                    return <option key={v.id} value={v.id}>{p?.name} - {v.name}</option>
+                                })}
+                            </select>
+                            <Input type="number" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', parseInt(e.target.value))} />
+                            <Input type="number" value={item.price} onChange={e => handleItemChange(index, 'price', parseFloat(e.target.value))} />
+                            <Button variant="danger" onClick={() => removeItem(index)}><Trash2 size={16}/></Button>
+                        </div>
+                    ))}
+                    <Button onClick={addItem}><PlusCircle size={16} className="mr-2"/>Aggiungi Prodotto</Button>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                    <Button type="submit">Salva</Button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const ExpensesView: React.FC = () => {
+    const { state, settings, dispatch } = useAppContext();
+    const { expenses, suppliers } = state[settings.currentYear];
+    const { partners } = state;
+    const [isModalOpen, setModalOpen] = useState(false);
+    const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+    const openModal = (expense: Expense | null = null) => {
+        setEditingExpense(expense);
+        setModalOpen(true);
+    };
+
+    const handleDelete = (id: string) => {
+        if (confirm('Sei sicuro di voler eliminare questa spesa?')) {
+            dispatch({ type: 'DELETE_EXPENSE', payload: id });
+        }
+    };
+
+    return (
+        <Card title="Gestione Spese">
+            <div className="flex justify-end mb-4">
+                <Button onClick={() => openModal()}><PlusCircle className="mr-2" size={16}/>Aggiungi Spesa</Button>
+            </div>
+            <Table headers={["Data", "Descrizione", "Fornitore", "Imponibile", "Totale IVA Incl.", "Pagato da", "Azioni"]}>
+                {expenses.map(expense => {
+                    const supplier = suppliers.find(s => s.id === expense.supplierId);
+                    const partner = partners.find(p => p.id === expense.paidByPartnerId);
+                    return (
+                        <tr key={expense.id}>
+                            <td className="px-6 py-4">{new Date(expense.date).toLocaleDateString()}</td>
+                            <td className="px-6 py-4">{expense.description}</td>
+                            <td className="px-6 py-4">{supplier?.name || 'N/A'}</td>
+                            <td className="px-6 py-4">€{expense.priceWithoutVat.toFixed(2)}</td>
+                            <td className="px-6 py-4">€{expense.priceWithVat.toFixed(2)}</td>
+                            <td className="px-6 py-4">{partner?.name || 'N/A'}</td>
+                            <td className="px-6 py-4 space-x-2">
+                                <Button variant="ghost" size="sm" onClick={() => openModal(expense)}><Edit size={16}/></Button>
+                                <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDelete(expense.id)}><Trash2 size={16}/></Button>
+                            </td>
+                        </tr>
+                    );
+                })}
+            </Table>
+            <ExpenseModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} expense={editingExpense} />
+        </Card>
+    );
+};
+
+const ExpenseModal: React.FC<{ isOpen: boolean, onClose: () => void, expense: Expense | null }> = ({ isOpen, onClose, expense }) => {
+    const { state, settings, dispatch } = useAppContext();
+    const { suppliers } = state[settings.currentYear];
+    const { partners } = state;
+    const [formData, setFormData] = useState<Omit<Expense, 'id'>>({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        quantity: 1,
+        priceWithoutVat: 0,
+        priceWithVat: 0,
+        supplierId: '',
+        notes: '',
+        paidByPartnerId: ''
+    });
+
+    useEffect(() => {
+        if (expense) {
+            setFormData(expense);
+        } else {
+            setFormData({
+                date: new Date().toISOString().split('T')[0],
+                description: '',
+                quantity: 1,
+                priceWithoutVat: 0,
+                priceWithVat: 0,
+                supplierId: '',
+                notes: '',
+                paidByPartnerId: ''
+            });
+        }
+    }, [expense, isOpen]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        const price = parseFloat(value) || 0;
+        if (name === 'priceWithoutVat') {
+            setFormData(prev => ({ ...prev, priceWithoutVat: price, priceWithVat: price * 1.22 }));
+        } else {
+            setFormData(prev => ({ ...prev, priceWithVat: price, priceWithoutVat: price / 1.22 }));
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (expense) {
+            dispatch({ type: 'UPDATE_EXPENSE', payload: { ...formData, id: expense.id } });
+        } else {
+            dispatch({ type: 'ADD_EXPENSE', payload: formData });
+        }
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={expense ? 'Modifica Spesa' : 'Aggiungi Spesa'}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <Input label="Data" name="date" type="date" value={formData.date} onChange={handleChange} required />
+                <Input label="Descrizione" name="description" value={formData.description} onChange={handleChange} required />
+                <Input label="Quantità" name="quantity" type="number" value={formData.quantity} onChange={handleChange} required />
+                <Input label="Prezzo (IVA Esclusa)" name="priceWithoutVat" type="number" value={formData.priceWithoutVat} onChange={handlePriceChange} />
+                <Input label="Prezzo (IVA Inclusa)" name="priceWithVat" type="number" value={formData.priceWithVat} onChange={handlePriceChange} />
+                <div>
+                    <label className="block text-sm font-medium mb-1">Fornitore</label>
+                    <select name="supplierId" value={formData.supplierId} onChange={handleChange} className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+                        <option value="">Seleziona Fornitore</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1">Pagato da</label>
+                    <select name="paidByPartnerId" value={formData.paidByPartnerId} onChange={handleChange} className="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+                        <option value="">Seleziona Socio</option>
+                        {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                <Input label="Note" name="notes" value={formData.notes || ''} onChange={handleChange} />
+                <div className="flex justify-end pt-4">
+                    <Button type="submit">Salva</Button>
+                </div>
+            </form>
+        </Modal>
+    );
 };

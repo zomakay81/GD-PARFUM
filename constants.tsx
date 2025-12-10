@@ -38,6 +38,17 @@ export const BeakerIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const CreditCardIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21.75z" />
+  </svg>
+);
+
+export const ClipboardListIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+);
 
 export interface NavItem {
   name: string;
@@ -56,5 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
   { name: 'Carico Magazzino', page: 'stock-load', icon: DocumentPlusIcon },
   { name: 'Produzione', page: 'production', icon: BeakerIcon },
   { name: 'Dare/Avere Soci', page: 'partner-ledger', icon: UsersIcon },
+  { name: 'Spese', page: 'expenses', icon: CreditCardIcon },
+  { name: 'Ordini Clienti', page: 'customer-orders', icon: ClipboardListIcon },
   { name: 'Archivi', page: 'archives', icon: ChartBarIcon },
 ];
