@@ -63,7 +63,16 @@ type Action =
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
   | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string } }
-  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement };
+  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
+  // Azioni Spese
+  | { type: 'ADD_EXPENSE'; payload: Omit<Expense, 'id'> }
+  | { type: 'UPDATE_EXPENSE'; payload: Expense }
+  | { type: 'DELETE_EXPENSE'; payload: string }
+  // Azioni Ordini Clienti
+  | { type: 'ADD_CUSTOMER_ORDER'; payload: Omit<CustomerOrder, 'id' | 'type' | 'status'> }
+  | { type: 'UPDATE_CUSTOMER_ORDER'; payload: CustomerOrder }
+  | { type: 'DELETE_CUSTOMER_ORDER'; payload: string }
+  | { type: 'CONVERT_ORDER_TO_SALE'; payload: string };
 
 
 // --- STATO INIZIALE ---
@@ -76,7 +85,8 @@ const getInitialYearData = (): YearData => ({
       { id: uuidv4(), name: "Prodotto Finito", isComponent: false, isFinishedProduct: true },
       { id: uuidv4(), name: "Semilavorato (Sfuso)", isComponent: true, isFinishedProduct: true },
   ],
-  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: []
+  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: [],
+  expenses: [], customerOrders: []
 });
 
 const getDefaultCompanyInfo = (): CompanyInfo => ({
@@ -121,6 +131,12 @@ const getInitialState = (): { state: AppState; settings: Settings } => {
     }
     if (!initialState[currentYear].partnerSettlements) {
         initialState[currentYear].partnerSettlements = [];
+    }
+    if (!initialState[currentYear].expenses) {
+        initialState[currentYear].expenses = [];
+    }
+    if (!initialState[currentYear].customerOrders) {
+        initialState[currentYear].customerOrders = [];
     }
     
     // Migration: ensure batches have status
@@ -1010,6 +1026,85 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
               }
           });
           break;
+      }
+
+      // --- SPESE ---
+      case 'ADD_EXPENSE': {
+        const newExpense: Expense = { id: uuidv4(), ...action.payload };
+        yearData.expenses.push(newExpense);
+        if (newExpense.paidByPartnerId) {
+            const ledgerEntry: PartnerLedgerEntry = {
+                id: uuidv4(),
+                date: newExpense.date,
+                description: `Spesa: ${newExpense.description}`,
+                amount: -newExpense.priceWithVat,
+                partnerId: newExpense.paidByPartnerId,
+                relatedDocumentId: newExpense.id,
+            };
+            yearData.partnerLedger.push(ledgerEntry);
+        }
+        break;
+      }
+      case 'UPDATE_EXPENSE': {
+        const index = yearData.expenses.findIndex(e => e.id === action.payload.id);
+        if (index !== -1) yearData.expenses[index] = action.payload;
+        const ledgerEntry = yearData.partnerLedger.find(e => e.relatedDocumentId === action.payload.id);
+        if (ledgerEntry) {
+            ledgerEntry.amount = -action.payload.priceWithVat;
+            ledgerEntry.date = action.payload.date;
+            ledgerEntry.description = `Spesa: ${action.payload.description}`;
+            if(action.payload.paidByPartnerId) ledgerEntry.partnerId = action.payload.paidByPartnerId;
+        }
+        break;
+      }
+      case 'DELETE_EXPENSE': {
+        yearData.expenses = yearData.expenses.filter(e => e.id !== action.payload);
+        yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== action.payload);
+        break;
+      }
+
+      // --- ORDINI CLIENTI ---
+      case 'ADD_CUSTOMER_ORDER': {
+        const newOrder: CustomerOrder = {
+            id: uuidv4(),
+            ...action.payload,
+            type: 'ordine',
+            status: 'aperto'
+        };
+        yearData.customerOrders.push(newOrder);
+        break;
+      }
+      case 'UPDATE_CUSTOMER_ORDER': {
+        const index = yearData.customerOrders.findIndex(o => o.id === action.payload.id);
+        if (index !== -1) yearData.customerOrders[index] = action.payload;
+        break;
+      }
+      case 'DELETE_CUSTOMER_ORDER': {
+        yearData.customerOrders = yearData.customerOrders.filter(o => o.id !== action.payload);
+        break;
+      }
+      case 'CONVERT_ORDER_TO_SALE': {
+        const orderId = action.payload;
+        const order = yearData.customerOrders.find(o => o.id === orderId);
+        if (order && order.status === 'aperto') {
+            const newSale: Sale = {
+                id: uuidv4(),
+                date: new Date().toISOString().split('T')[0],
+                customerId: order.customerId,
+                items: order.items.map(({ prepared, ...item }) => item),
+                subtotal: order.subtotal,
+                vatApplied: order.vatApplied,
+                total: order.total,
+                type: 'vendita',
+                payments: [],
+                discountValue: order.discountValue,
+                discountType: order.discountType,
+                shippingCost: order.shippingCost
+            };
+            yearData.sales.push(newSale);
+            order.status = 'convertito';
+        }
+        break;
       }
     }
   });

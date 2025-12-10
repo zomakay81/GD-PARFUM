@@ -215,6 +215,40 @@ export interface PartnerSettlement {
   }[];
 }
 
+export interface Expense {
+  id: string;
+  date: string;
+  description: string;
+  quantity: number;
+  priceWithoutVat: number;
+  priceWithVat: number;
+  supplierId?: string;
+  notes?: string;
+  paidByPartnerId?: string;
+}
+
+export interface CustomerOrderItem {
+  variantId: string;
+  quantity: number;
+  price: number;
+  prepared: boolean;
+}
+
+export interface CustomerOrder {
+  id: string;
+  date: string;
+  customerId: string;
+  items: CustomerOrderItem[];
+  subtotal: number;
+  vatApplied: boolean;
+  total: number;
+  type: 'ordine';
+  status: 'aperto' | 'convertito';
+  discountValue?: number;
+  discountType?: 'amount' | 'percentage';
+  shippingCost?: number;
+}
+
 export interface YearData {
   customers: Customer[];
   suppliers: Supplier[];
@@ -229,6 +263,8 @@ export interface YearData {
   quotes: Quote[];
   partnerLedger: PartnerLedgerEntry[];
   partnerSettlements: PartnerSettlement[];
+  expenses: Expense[];
+  customerOrders: CustomerOrder[];
 }
 
 export interface AppState {
@@ -261,4 +297,6 @@ export type View =
   | 'cellar' 
   | 'partner-ledger'
   | 'catalog'
-  | 'archives';
+  | 'archives'
+  | 'expenses'
+  | 'customer-orders';
