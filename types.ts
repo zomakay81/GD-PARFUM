@@ -214,6 +214,14 @@ export interface PartnerSettlement {
       balance: number;
       status: 'creditor' | 'debtor' | 'balanced';
   }[];
+  payment?: {
+    amount: number;
+    paymentMethod?: string;
+    fromPartnerId: string;
+    fromPartnerName: string;
+    toPartnerId: string;
+    toPartnerName: string;
+  }
 }
 
 export interface Expense {
