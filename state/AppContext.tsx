@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useReducer, useMemo, useCallback } from 'react';
-import type { AppState, Settings, YearData, View, Customer, Supplier, Agent, Partner, Product, StockLoad, StockLoadItem, Category, Sale, Quote, DocumentItem, ProductVariant, PartnerLedgerEntry, Production, InventoryBatch, ProductionComponent, CompanyInfo, PartnerSettlement, SalePayment } from '../types';
+import type { AppState, Settings, YearData, View, Customer, Supplier, Agent, Partner, Product, StockLoad, StockLoadItem, Category, Sale, Quote, DocumentItem, ProductVariant, PartnerLedgerEntry, Production, InventoryBatch, ProductionComponent, CompanyInfo, PartnerSettlement, SalePayment, Expense } from '../types';
 import { produce } from 'immer';
 import { v4 as uuidv4 } from 'uuid';
+import { VAT_RATE } from '../constants';
 
 // --- TIPI DI AZIONE ---
 type Action =
@@ -63,7 +64,17 @@ type Action =
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
   | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string } }
-  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement };
+  | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
+  // Azioni Spese
+  | { type: 'ADD_EXPENSE'; payload: Expense }
+  | { type: 'UPDATE_EXPENSE'; payload: Expense }
+  | { type: 'DELETE_EXPENSE'; payload: string }
+  // Azioni Ordini
+  | { type: 'ADD_ORDER'; payload: Order }
+  | { type: 'UPDATE_ORDER'; payload: Order }
+  | { type: 'DELETE_ORDER'; payload: string }
+  | { type: 'TOGGLE_ORDER_ITEM_PREPARED'; payload: { orderId: string, itemId: string } }
+  | { type: 'CONVERT_ORDER_TO_SALE'; payload: string };
 
 
 // --- STATO INIZIALE ---
@@ -76,7 +87,7 @@ const getInitialYearData = (): YearData => ({
       { id: uuidv4(), name: "Prodotto Finito", isComponent: false, isFinishedProduct: true },
       { id: uuidv4(), name: "Semilavorato (Sfuso)", isComponent: true, isFinishedProduct: true },
   ],
-  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: []
+  stockLoads: [], productions: [], sales: [], quotes: [], partnerLedger: [], partnerSettlements: [], expenses: [], orders: []
 });
 
 const getDefaultCompanyInfo = (): CompanyInfo => ({
@@ -98,30 +109,13 @@ const getInitialState = (): { state: AppState; settings: Settings } => {
     if (!initialState[currentYear]) {
         initialState[currentYear] = getInitialYearData();
     }
-     if (!initialState[currentYear].categories) {
-        initialState[currentYear].categories = getInitialYearData().categories;
-    }
-    if (!initialState[currentYear].sales) {
-        initialState[currentYear].sales = [];
-    }
-    if (!initialState[currentYear].quotes) {
-        initialState[currentYear].quotes = [];
-    }
-    if (!initialState[currentYear].productVariants) {
-        initialState[currentYear].productVariants = [];
-    }
-    if (!initialState[currentYear].inventoryBatches) {
-        initialState[currentYear].inventoryBatches = [];
-    }
-     if (!initialState[currentYear].partnerLedger) {
-        initialState[currentYear].partnerLedger = [];
-    }
-    if (!initialState[currentYear].productions) {
-        initialState[currentYear].productions = [];
-    }
-    if (!initialState[currentYear].partnerSettlements) {
-        initialState[currentYear].partnerSettlements = [];
-    }
+    // Comprehensive check to ensure all data arrays are initialized
+    const defaultYearData = getInitialYearData();
+    (Object.keys(defaultYearData) as Array<keyof YearData>).forEach(key => {
+        if (!initialState[currentYear][key]) {
+             initialState[currentYear][key] = defaultYearData[key] as any;
+        }
+    });
     
     // Migration: ensure batches have status
     Object.keys(initialState).forEach(key => {
@@ -441,7 +435,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : taxable;
 
         const newLoad: StockLoad = { id: uuidv4(), ...action.payload, total };
         yearData.stockLoads.push(newLoad);
@@ -663,7 +657,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : total;
         
         for (const item of items) {
             // Check against AVAILABLE quantity, not total
@@ -859,7 +853,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * 1.22 : taxable;
+        const total = vatApplied ? taxable * VAT_RATE : total;
 
         const newQuote: Quote = { 
             id: uuidv4(), 
@@ -961,34 +955,53 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           break;
       }
       case 'TRANSFER_BETWEEN_PARTNERS': {
-          const { fromPartnerId, toPartnerId, amount, date, description } = action.payload;
+          const { fromPartnerId, toPartnerId, amount, date, description, paymentMethod } = action.payload;
           const fromPartner = draft.state.partners.find(p => p.id === fromPartnerId);
           const toPartner = draft.state.partners.find(p => p.id === toPartnerId);
 
           if (fromPartner && toPartner) {
-              // Sender: gives money (cash out), so his debt to system decreases (negative transaction if we consider positive = debt)
-              // WAIT: In this system:
-              // - COLLECTION (Money In) = Positive Balance (Debtor to company)
-              // - PAYMENT/EXPENSE (Money Out) = Negative Balance (Creditor to company)
+              // --- 1. Create a snapshot of the current state BEFORE the transaction ---
+              const currentBalances = draft.state.partners.map(p => {
+                  const entries = yearData.partnerLedger.filter(e => e.partnerId === p.id);
+                  const balance = entries.reduce((acc, e) => acc + e.amount, 0);
+                  return { partnerId: p.id, partnerName: p.name, balance };
+              });
+              const totalSystemBalance = currentBalances.reduce((acc, p) => acc + p.balance, 0);
+              const targetPerPartner = totalSystemBalance / draft.state.partners.length;
+
+              const snapshot: PartnerSettlement = {
+                  id: uuidv4(),
+                  date: date, // Use the transaction date for the snapshot
+                  totalSystemBalance,
+                  targetPerPartner,
+                  partnerSnapshots: currentBalances.map(p => ({
+                      ...p,
+                      status: (p.balance > targetPerPartner + 0.01) ? 'debtor' : (p.balance < targetPerPartner - 0.01) ? 'creditor' : 'balanced'
+                  }))
+              };
+              yearData.partnerSettlements.push(snapshot);
+
+              // --- 2. Apply the transaction ---
+              const commonDescription = `${description} (${paymentMethod || 'N/D'})`;
               
-              // Sender GIVES money to Receiver.
-              // Sender no longer holds the cash -> Balance decreases (Negative entry)
+              // Sender GIVES money. Balance decreases.
               yearData.partnerLedger.push({
                   id: uuidv4(),
                   date,
-                  description: `Trasferimento a ${toPartner.name}: ${description}`,
+                  description: `Trasferimento a ${toPartner.name}: ${commonDescription}`,
                   amount: -amount,
-                  partnerId: fromPartnerId
+                  partnerId: fromPartnerId,
+                  paymentMethod: paymentMethod
               });
 
-              // Receiver GETS money.
-              // Receiver now holds the cash -> Balance increases (Positive entry)
+              // Receiver GETS money. Balance increases.
               yearData.partnerLedger.push({
                   id: uuidv4(),
                   date,
-                  description: `Trasferimento da ${fromPartner.name}: ${description}`,
+                  description: `Trasferimento da ${fromPartner.name}: ${commonDescription}`,
                   amount: amount,
-                  partnerId: toPartnerId
+                  partnerId: toPartnerId,
+                  paymentMethod: paymentMethod
               });
           }
           break;
@@ -1011,6 +1024,140 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           });
           break;
       }
+
+      // --- SPESE ---
+      case 'ADD_EXPENSE': {
+          const expense = action.payload;
+          yearData.expenses.push(expense);
+          if (expense.paidByPartnerId) {
+              yearData.partnerLedger.push({
+                  id: uuidv4(),
+                  date: expense.date,
+                  description: `Spesa: ${expense.description}`,
+                  amount: -expense.total,
+                  partnerId: expense.paidByPartnerId,
+                  relatedDocumentId: expense.id
+              });
+          }
+          break;
+      }
+      case 'UPDATE_EXPENSE': {
+          const expense = action.payload;
+          const index = yearData.expenses.findIndex(e => e.id === expense.id);
+          if (index !== -1) {
+              yearData.expenses[index] = expense;
+
+              const ledgerEntryIndex = yearData.partnerLedger.findIndex(e => e.relatedDocumentId === expense.id);
+              if (expense.paidByPartnerId) {
+                  if (ledgerEntryIndex !== -1) {
+                      const entry = yearData.partnerLedger[ledgerEntryIndex];
+                      entry.date = expense.date;
+                      entry.description = `Spesa: ${expense.description}`;
+                      entry.amount = -expense.total;
+                      entry.partnerId = expense.paidByPartnerId;
+                  } else {
+                      yearData.partnerLedger.push({
+                          id: uuidv4(),
+                          date: expense.date,
+                          description: `Spesa: ${expense.description}`,
+                          amount: -expense.total,
+                          partnerId: expense.paidByPartnerId,
+                          relatedDocumentId: expense.id
+                      });
+                  }
+              } else if (ledgerEntryIndex !== -1) {
+                  yearData.partnerLedger.splice(ledgerEntryIndex, 1);
+              }
+          }
+          break;
+      }
+      case 'DELETE_EXPENSE': {
+          const expenseId = action.payload;
+          yearData.expenses = yearData.expenses.filter(e => e.id !== expenseId);
+          yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== expenseId);
+          break;
+      }
+      
+      // --- ORDINI CLIENTI ---
+        case 'ADD_ORDER':
+            yearData.orders.push(action.payload);
+            break;
+        case 'UPDATE_ORDER': {
+            const index = yearData.orders.findIndex(o => o.id === action.payload.id);
+            if (index !== -1) {
+                yearData.orders[index] = action.payload;
+            }
+            break;
+        }
+        case 'DELETE_ORDER':
+            yearData.orders = yearData.orders.filter(o => o.id !== action.payload);
+            break;
+        case 'TOGGLE_ORDER_ITEM_PREPARED': {
+            const { orderId, itemId } = action.payload;
+            const order = yearData.orders.find(o => o.id === orderId);
+            if (order) {
+                const item = order.items.find(i => i.variantId === itemId);
+                if (item) {
+                    item.prepared = !item.prepared;
+                }
+            }
+            break;
+        }
+        case 'CONVERT_ORDER_TO_SALE': {
+            const orderId = action.payload;
+            const order = yearData.orders.find(o => o.id === orderId);
+            if (order && order.status === 'in-preparazione' && order.items.every(i => i.prepared)) {
+                
+                //
+                // Same inventory check as in ADD_SALE
+                //
+                for (const item of order.items) {
+                    const totalAvailable = getVariantAvailableQuantity(item.variantId, yearData.inventoryBatches);
+                    if (totalAvailable < item.quantity) {
+                        const variant = yearData.productVariants.find(v => v.id === item.variantId);
+                        const product = yearData.products.find(p => p.id === variant?.productId);
+                        alert(`Quantità DISPONIBILE insufficiente per ${product?.name || 'sconosciuto'} - ${variant?.name || ''}. Richiesti: ${item.quantity}, Disponibili: ${totalAvailable}`);
+                        return; // Stop conversion
+                    }
+                }
+
+                //
+                // Same inventory consumption logic as in ADD_SALE
+                //
+                order.items.forEach(item => {
+                    const sortedBatches = getSortedBatches(item.variantId, yearData.inventoryBatches, true);
+                    let remainingToTake = item.quantity;
+                    for (const batch of sortedBatches) {
+                        if (remainingToTake <= 0) break;
+                        const takeFromThisBatch = Math.min(batch.currentQuantity, remainingToTake);
+                        batch.currentQuantity -= takeFromThisBatch;
+                        remainingToTake -= takeFromThisBatch;
+                    }
+                });
+                
+                // Create the new Sale
+                const newSale: Sale = {
+                    id: uuidv4(),
+                    date: new Date().toISOString().split('T')[0],
+                    customerId: order.customerId,
+                    items: order.items.map(({ prepared, ...item }) => item), // Remove 'prepared' flag
+                    subtotal: order.subtotal,
+                    vatApplied: order.vatApplied,
+                    total: order.total,
+                    type: 'vendita',
+                    payments: [],
+                    discountValue: order.discountValue,
+                    discountType: order.discountType,
+                    shippingCost: order.shippingCost,
+                    // Note: 'notes' from order could be transferred here if Sale type is updated to support it
+                };
+                yearData.sales.push(newSale);
+                
+                // Mark the order as completed
+                order.status = 'completato';
+            }
+            break;
+        }
     }
   });
 };

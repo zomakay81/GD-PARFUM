@@ -200,6 +200,7 @@ export interface PartnerLedgerEntry {
   amount: number;
   partnerId: string;
   relatedDocumentId?: string;
+  paymentMethod?: string;
 }
 
 export interface PartnerSettlement {
@@ -213,6 +214,19 @@ export interface PartnerSettlement {
       balance: number;
       status: 'creditor' | 'debtor' | 'balanced';
   }[];
+}
+
+export interface Expense {
+  id: string;
+  date: string;
+  description: string;
+  quantity: number;
+  price: number;
+  vatApplied: boolean;
+  total: number;
+  supplierId?: string;
+  notes?: string;
+  paidByPartnerId?: string;
 }
 
 export interface YearData {
@@ -229,6 +243,27 @@ export interface YearData {
   quotes: Quote[];
   partnerLedger: PartnerLedgerEntry[];
   partnerSettlements: PartnerSettlement[];
+  expenses: Expense[];
+  orders: Order[];
+}
+
+export interface OrderItem extends DocumentItem {
+  prepared: boolean;
+}
+
+export interface Order {
+  id: string;
+  date: string;
+  customerId: string;
+  items: OrderItem[];
+  subtotal: number;
+  vatApplied: boolean;
+  total: number;
+  status: 'in-preparazione' | 'completato' | 'annullato';
+  discountValue?: number;
+  discountType?: 'amount' | 'percentage';
+  shippingCost?: number;
+  notes?: string;
 }
 
 export interface AppState {
@@ -261,4 +296,6 @@ export type View =
   | 'cellar' 
   | 'partner-ledger'
   | 'catalog'
-  | 'archives';
+  | 'archives'
+  | 'spese'
+  | 'ordini-clienti';

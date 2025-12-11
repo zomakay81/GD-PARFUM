@@ -8,6 +8,8 @@ import { PlusCircle, Edit, Trash2, Check, X, DollarSign, Layers, ArrowUpDown, Im
 import { v4 as uuidv4 } from 'uuid';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { SpeseView } from './Spese';
+import { OrdiniClientiView } from './OrdiniClienti';
 
 // --- UTILS PER ORDINAMENTO ---
 const SortHeader = ({ label, sortKey, currentSort, onSort }: { label: string, sortKey: string, currentSort: { key: string, direction: string }, onSort: (key: string) => void }) => (
@@ -1068,6 +1070,7 @@ const PartnerTransferModal: React.FC<{ isOpen: boolean, onClose: () => void }> =
     const [amount, setAmount] = useState(0);
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [paymentMethod, setPaymentMethod] = useState('');
 
     const handleSave = () => {
         if (!fromPartnerId || !toPartnerId) return alert("Seleziona entrambi i soci.");
@@ -1077,7 +1080,7 @@ const PartnerTransferModal: React.FC<{ isOpen: boolean, onClose: () => void }> =
 
         dispatch({
             type: 'TRANSFER_BETWEEN_PARTNERS',
-            payload: { fromPartnerId, toPartnerId, amount, date, description }
+            payload: { fromPartnerId, toPartnerId, amount, date, description, paymentMethod }
         });
         
         // Reset form
@@ -1085,6 +1088,7 @@ const PartnerTransferModal: React.FC<{ isOpen: boolean, onClose: () => void }> =
         setToPartnerId('');
         setAmount(0);
         setDescription('');
+        setPaymentMethod('');
         onClose();
     };
 
@@ -1124,6 +1128,13 @@ const PartnerTransferModal: React.FC<{ isOpen: boolean, onClose: () => void }> =
                     />
                 </div>
 
+                <Input 
+                    label="Modalità di Pagamento (Opzionale)" 
+                    value={paymentMethod} 
+                    onChange={e => setPaymentMethod(e.target.value)} 
+                    placeholder="Es. Bonifico, Contanti..."
+                />
+
                 <div className="flex justify-end pt-4">
                     <Button variant="secondary" onClick={onClose}>Annulla</Button>
                     <Button onClick={handleSave} className="ml-2">Registra Movimento</Button>
@@ -1141,10 +1152,13 @@ const SettlementPaymentModal: React.FC<{
     const { dispatch } = useAppContext();
     const [amount, setAmount] = useState(0);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [paymentMethod, setPaymentMethod] = useState('');
 
     useEffect(() => {
         if (data) {
             setAmount(data.amount);
+        } else {
+            setPaymentMethod('');
         }
     }, [data]);
 
@@ -1160,7 +1174,8 @@ const SettlementPaymentModal: React.FC<{
                 toPartnerId: data.toId, 
                 amount, 
                 date, 
-                description: `Pareggio conti: ${data.fromName} versa a ${data.toName}`
+                description: `Pareggio conti: ${data.fromName} versa a ${data.toName}`,
+                paymentMethod
             }
         });
         onClose();
@@ -1183,6 +1198,12 @@ const SettlementPaymentModal: React.FC<{
 
                 <Input type="number" label="Importo da Versare" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} step="0.01" />
                 <Input type="date" label="Data Pagamento" value={date} onChange={e => setDate(e.target.value)} />
+                <Input 
+                    label="Modalità di Pagamento (Opzionale)" 
+                    value={paymentMethod} 
+                    onChange={e => setPaymentMethod(e.target.value)} 
+                    placeholder="Es. Bonifico, Contanti..."
+                />
                 
                 <p className="text-xs text-gray-500 italic">
                     Verrà creato un movimento nel mastro con causale automatica "Pareggio conti: {data.fromName} versa a {data.toName}".
@@ -3325,6 +3346,8 @@ export const MainViews: React.FC<{ view: View }> = ({ view }) => {
         case 'cellar': return <CellarView />;
         case 'partner-ledger': return <PartnerLedgerView />;
         case 'catalog': return <CatalogView />;
+        case 'spese': return <SpeseView />;
+        case 'ordini-clienti': return <OrdiniClientiView />;
         case 'archives': return (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <Archive size={64} className="mb-4 text-gray-300" />
