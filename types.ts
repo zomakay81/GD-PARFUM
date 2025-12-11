@@ -200,6 +200,7 @@ export interface PartnerLedgerEntry {
   amount: number;
   partnerId: string;
   relatedDocumentId?: string;
+  paymentMethod?: string;
 }
 
 export interface PartnerSettlement {

@@ -955,34 +955,53 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           break;
       }
       case 'TRANSFER_BETWEEN_PARTNERS': {
-          const { fromPartnerId, toPartnerId, amount, date, description } = action.payload;
+          const { fromPartnerId, toPartnerId, amount, date, description, paymentMethod } = action.payload;
           const fromPartner = draft.state.partners.find(p => p.id === fromPartnerId);
           const toPartner = draft.state.partners.find(p => p.id === toPartnerId);
 
           if (fromPartner && toPartner) {
-              // Sender: gives money (cash out), so his debt to system decreases (negative transaction if we consider positive = debt)
-              // WAIT: In this system:
-              // - COLLECTION (Money In) = Positive Balance (Debtor to company)
-              // - PAYMENT/EXPENSE (Money Out) = Negative Balance (Creditor to company)
+              // --- 1. Create a snapshot of the current state BEFORE the transaction ---
+              const currentBalances = draft.state.partners.map(p => {
+                  const entries = yearData.partnerLedger.filter(e => e.partnerId === p.id);
+                  const balance = entries.reduce((acc, e) => acc + e.amount, 0);
+                  return { partnerId: p.id, partnerName: p.name, balance };
+              });
+              const totalSystemBalance = currentBalances.reduce((acc, p) => acc + p.balance, 0);
+              const targetPerPartner = totalSystemBalance / draft.state.partners.length;
+
+              const snapshot: PartnerSettlement = {
+                  id: uuidv4(),
+                  date: date, // Use the transaction date for the snapshot
+                  totalSystemBalance,
+                  targetPerPartner,
+                  partnerSnapshots: currentBalances.map(p => ({
+                      ...p,
+                      status: (p.balance > targetPerPartner + 0.01) ? 'debtor' : (p.balance < targetPerPartner - 0.01) ? 'creditor' : 'balanced'
+                  }))
+              };
+              yearData.partnerSettlements.push(snapshot);
+
+              // --- 2. Apply the transaction ---
+              const commonDescription = `${description} (${paymentMethod || 'N/D'})`;
               
-              // Sender GIVES money to Receiver.
-              // Sender no longer holds the cash -> Balance decreases (Negative entry)
+              // Sender GIVES money. Balance decreases.
               yearData.partnerLedger.push({
                   id: uuidv4(),
                   date,
-                  description: `Trasferimento a ${toPartner.name}: ${description}`,
+                  description: `Trasferimento a ${toPartner.name}: ${commonDescription}`,
                   amount: -amount,
-                  partnerId: fromPartnerId
+                  partnerId: fromPartnerId,
+                  paymentMethod: paymentMethod
               });
 
-              // Receiver GETS money.
-              // Receiver now holds the cash -> Balance increases (Positive entry)
+              // Receiver GETS money. Balance increases.
               yearData.partnerLedger.push({
                   id: uuidv4(),
                   date,
-                  description: `Trasferimento da ${fromPartner.name}: ${description}`,
+                  description: `Trasferimento da ${fromPartner.name}: ${commonDescription}`,
                   amount: amount,
-                  partnerId: toPartnerId
+                  partnerId: toPartnerId,
+                  paymentMethod: paymentMethod
               });
           }
           break;
