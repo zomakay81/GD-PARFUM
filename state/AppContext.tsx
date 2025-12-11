@@ -65,6 +65,8 @@ type Action =
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
   | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string, paymentMethod?: string } }
   | { type: 'RECORD_SETTLEMENT_PAYMENT', payload: { fromPartnerId: string; fromPartnerName: string; toPartnerId: string; toPartnerName: string; amount: number; date: string; paymentMethod?: string; isTotalSettlement: boolean } }
+  | { type: 'UPDATE_LAST_SETTLEMENT', payload: { settlementId: string; updatedPayment: SalePayment } }
+  | { type: 'DELETE_LAST_SETTLEMENT', payload: { settlementId: string } }
   | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
   // Azioni Spese
   | { type: 'ADD_EXPENSE'; payload: Expense }
@@ -1212,6 +1214,73 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             }
           });
         }
+        break;
+      }
+      case 'UPDATE_LAST_SETTLEMENT': {
+        const { settlementId, updatedPayment } = action.payload;
+        const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
+
+        if (settlementIndex === -1 || settlementIndex !== yearData.partnerSettlements.length - 1) {
+            alert("È possibile modificare solo l'ultima chiusura registrata.");
+            break;
+        }
+
+        const settlementToUpdate = yearData.partnerSettlements[settlementIndex];
+        settlementToUpdate.payment = updatedPayment;
+        settlementToUpdate.date = updatedPayment.date;
+
+        yearData.partnerLedger.forEach(entry => {
+            if (entry.relatedDocumentId === settlementId) {
+                entry.date = updatedPayment.date;
+                entry.amount = entry.partnerId === updatedPayment.fromPartnerId ? -updatedPayment.amount : updatedPayment.amount;
+            }
+        });
+        break;
+      }
+      case 'DELETE_LAST_SETTLEMENT': {
+        const { settlementId } = action.payload;
+        const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
+
+        if (settlementIndex === -1) {
+          alert("Chiusura non trovata.");
+          break;
+        }
+
+        // Ensure it's the last one
+        if (settlementIndex !== yearData.partnerSettlements.length - 1) {
+          alert("È possibile eliminare solo l'ultima chiusura registrata.");
+          break;
+        }
+
+        const settlement = yearData.partnerSettlements[settlementIndex];
+
+        // Find the ledger entries related to this settlement
+        const settlementLedgerEntries = yearData.partnerLedger.filter(e => e.relatedDocumentId === settlement.id);
+        if (settlementLedgerEntries.length === 0) {
+            // If no ledger entries are found for some reason, just remove the settlement record.
+            yearData.partnerSettlements.splice(settlementIndex, 1);
+            alert("Chiusura eliminata. Nessun movimento contabile associato trovato.");
+            break;
+        }
+
+        const settlementDate = new Date(settlement.date).getTime();
+
+        // Check for any other partner-related transactions after this settlement
+        const hasSubsequentTransactions = yearData.partnerLedger.some(e => {
+            if (e.relatedDocumentId === settlement.id) return false; // ignore entries of the settlement itself
+            const entryDate = new Date(e.date).getTime();
+            return entryDate > settlementDate;
+        });
+
+        if (hasSubsequentTransactions) {
+            alert("Impossibile eliminare questa chiusura perché sono state registrate altre transazioni finanziarie successivamente. Per correggere, crea una nuova transazione di pareggio.");
+            break;
+        }
+
+        // Proceed with deletion
+        yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== settlement.id);
+        yearData.partnerSettlements.splice(settlementIndex, 1);
+        alert("Chiusura e movimenti contabili associati eliminati con successo.");
         break;
       }
     }

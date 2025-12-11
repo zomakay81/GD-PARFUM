@@ -3084,15 +3084,103 @@ const PartnerDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, partn
     );
 }
 
+const EditSettlementPaymentModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    settlement: PartnerSettlement | null
+}> = ({ isOpen, onClose, settlement }) => {
+    const { dispatch } = useAppContext();
+    const [amount, setAmount] = useState(0);
+    const [date, setDate] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+
+    useEffect(() => {
+        if (settlement?.payment) {
+            setAmount(settlement.payment.amount);
+            setDate(settlement.payment.date);
+            setPaymentMethod(settlement.payment.paymentMethod || '');
+        }
+    }, [settlement]);
+
+    if (!settlement) return null;
+
+    const handleSave = () => {
+        if (amount <= 0) return alert("Inserisci un importo valido.");
+
+        dispatch({
+            type: 'UPDATE_LAST_SETTLEMENT',
+            payload: {
+                settlementId: settlement.id,
+                updatedPayment: {
+                    ...settlement.payment!,
+                    amount,
+                    date,
+                    paymentMethod,
+                }
+            }
+        });
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Modifica Pagamento Chiusura">
+            <div className="space-y-4">
+                 <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                    <div className="text-center flex-1">
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{settlement.payment?.fromPartnerName}</p>
+                    </div>
+                    <ArrowRight className="text-gray-400 mx-2" />
+                    <div className="text-center flex-1">
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{settlement.payment?.toPartnerName}</p>
+                    </div>
+                </div>
+                <Input type="number" label="Importo Versato" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} step="0.01" />
+                <Input type="date" label="Data Pagamento" value={date} onChange={e => setDate(e.target.value)} />
+                <Input
+                    label="Modalità di Pagamento"
+                    value={paymentMethod}
+                    onChange={e => setPaymentMethod(e.target.value)}
+                    placeholder="Es. Bonifico, Contanti..."
+                />
+                <div className="flex justify-end pt-4 space-x-2">
+                    <Button variant="secondary" onClick={onClose}>Annulla</Button>
+                    <Button onClick={handleSave}>Salva Modifiche</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => void, settlements: PartnerSettlement[] }> = ({ isOpen, onClose, settlements }) => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
     const [selectedSettlement, setSelectedSettlement] = useState<PartnerSettlement | null>(null);
+    const [editingSettlement, setEditingSettlement] = useState<PartnerSettlement | null>(null);
 
     const sortedSettlements = useMemo(() => {
         return [...settlements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [settlements]);
 
+    const isDeleteDisabled = useMemo(() => {
+        if (sortedSettlements.length === 0) return true;
+
+        const lastSettlement = sortedSettlements[0];
+        const lastSettlementDate = new Date(lastSettlement.date);
+
+        return yearData.partnerLedger.some(entry => {
+            const entryDate = new Date(entry.date);
+            return entry.settlementId !== lastSettlement.id && entryDate > lastSettlementDate;
+        });
+    }, [sortedSettlements, yearData.partnerLedger]);
+
     const handleViewDetails = (settlement: PartnerSettlement) => {
         setSelectedSettlement(settlement);
+    };
+
+    const handleDelete = (settlementId: string) => {
+        if (confirm("Sei sicuro di voler eliminare questa chiusura? L'azione è irreversibile.")) {
+            dispatch({ type: 'DELETE_LAST_SETTLEMENT', payload: { settlementId } });
+        }
     };
 
     const DetailsView = () => {
@@ -3131,7 +3219,7 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Storico Chiusure e Pareggi">
             <div className="max-h-[60vh] overflow-y-auto">
-                {sortedSettlements.map(settlement => (
+                {sortedSettlements.map((settlement, idx) => (
                     <div key={settlement.id} className="p-4 mb-2 border rounded-lg flex justify-between items-center">
                         <div>
                             <p className="font-bold">{new Date(settlement.date).toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -3140,7 +3228,31 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
                             </p>
                             <p className="text-xs text-gray-400">Metodo: {settlement.payment?.paymentMethod || 'N/D'}</p>
                         </div>
-                        <Button variant="secondary" onClick={() => handleViewDetails(settlement)}>Vedi Dettagli</Button>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="secondary" onClick={() => handleViewDetails(settlement)}>Vedi Dettagli</Button>
+                          {idx === 0 && ( // Mostra solo per il più recente
+                            <>
+                              <div title={isDeleteDisabled ? "Non è possibile modificare l'ultima chiusura se sono presenti movimenti successivi." : "Modifica questa chiusura"}>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => setEditingSettlement(settlement)}
+                                  disabled={isDeleteDisabled}
+                                >
+                                  <Edit size={16} />
+                                </Button>
+                              </div>
+                              <div title={isDeleteDisabled ? "Non è possibile eliminare l'ultima chiusura se sono presenti movimenti successivi." : "Elimina questa chiusura"}>
+                                <Button
+                                  variant="danger"
+                                  onClick={() => handleDelete(settlement.id)}
+                                  disabled={isDeleteDisabled}
+                                >
+                                  Elimina
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                     </div>
                 ))}
                 {sortedSettlements.length === 0 && (
@@ -3153,6 +3265,11 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
                 <Button variant="secondary" onClick={onClose}>Chiudi</Button>
             </div>
             <DetailsView />
+            <EditSettlementPaymentModal
+                isOpen={!!editingSettlement}
+                onClose={() => setEditingSettlement(null)}
+                settlement={editingSettlement}
+            />
         </Modal>
     );
 };
