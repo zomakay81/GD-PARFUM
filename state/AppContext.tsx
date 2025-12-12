@@ -1209,7 +1209,8 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                 date: date,
                 description: `Chiusura Periodo / Azzeramento Saldo`,
                 amount: -snap.balance,
-                partnerId: snap.partnerId
+                partnerId: snap.partnerId,
+                relatedDocumentId: snapshot.id
               });
             }
           });
@@ -1267,9 +1268,14 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
 
         const settlementDate = new Date(settlement.date).getTime();
 
-        // Check for any other partner-related transactions after this settlement
+        const allSettlementIds = new Set(yearData.partnerSettlements.map(s => s.id));
+
+        // Check for any other *non-settlement* partner-related transactions after this settlement
         const hasSubsequentTransactions = yearData.partnerLedger.some(e => {
-            if (e.relatedDocumentId === settlement.id) return false; // ignore entries of the settlement itself
+            // Ignore entries related to ANY settlement
+            if (e.relatedDocumentId && allSettlementIds.has(e.relatedDocumentId)) {
+                return false;
+            }
             const entryDate = new Date(e.date).getTime();
             return entryDate > settlementDate;
         });

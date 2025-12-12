@@ -3163,13 +3163,18 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
 
     const isDeleteDisabled = useCallback((settlement: PartnerSettlement) => {
         const settlementDate = new Date(settlement.date);
+        const allSettlementIds = new Set(settlements.map(s => s.id));
 
         return yearData.partnerLedger.some(entry => {
             const entryDate = new Date(entry.date);
-            // Check if an entry is not related to the settlement in question AND is more recent.
-            return entry.relatedDocumentId !== settlement.id && entryDate > settlementDate;
+
+            const isLater = entryDate > settlementDate;
+            const isSettlementEntry = allSettlementIds.has(entry.relatedDocumentId || '');
+
+            // A transaction blocks deletion if it's more recent AND it's not another settlement.
+            return isLater && !isSettlementEntry;
         });
-    }, [yearData.partnerLedger]);
+    }, [yearData.partnerLedger, settlements]);
 
     const handleViewDetails = (settlement: PartnerSettlement) => {
         setSelectedSettlement(settlement);
