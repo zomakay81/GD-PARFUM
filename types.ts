@@ -199,7 +199,7 @@ export interface PartnerLedgerEntry {
   description: string;
   amount: number;
   partnerId: string;
-  relatedDocumentId?: string;
+  relatedDocumentId?: string; // ID of Sale, StockLoad, Settlement, etc.
   paymentMethod?: string;
 }
 
@@ -214,6 +214,14 @@ export interface PartnerSettlement {
       balance: number;
       status: 'creditor' | 'debtor' | 'balanced';
   }[];
+  payment?: {
+    amount: number;
+    paymentMethod?: string;
+    fromPartnerId: string;
+    fromPartnerName: string;
+    toPartnerId: string;
+    toPartnerName: string;
+  }
 }
 
 export interface Expense {

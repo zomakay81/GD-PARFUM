@@ -63,7 +63,10 @@ type Action =
   // Azioni Mastro Soci
   | { type: 'ADD_MANUAL_LEDGER_ENTRY', payload: Omit<PartnerLedgerEntry, 'id'> }
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
-  | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string } }
+  | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string, paymentMethod?: string } }
+  | { type: 'RECORD_SETTLEMENT_PAYMENT', payload: { fromPartnerId: string; fromPartnerName: string; toPartnerId: string; toPartnerName: string; amount: number; date: string; paymentMethod?: string; isTotalSettlement: boolean } }
+  | { type: 'UPDATE_SETTLEMENT', payload: { settlementId: string; updatedPayment: SalePayment } }
+  | { type: 'DELETE_SETTLEMENT', payload: { settlementId: string } }
   | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
   // Azioni Spese
   | { type: 'ADD_EXPENSE'; payload: Expense }
@@ -657,7 +660,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * VAT_RATE : total;
+        const total = vatApplied ? taxable * VAT_RATE : taxable;
         
         for (const item of items) {
             // Check against AVAILABLE quantity, not total
@@ -853,7 +856,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         const shipping = shippingCost || 0;
         const taxable = Math.max(0, subtotal - discount + shipping);
-        const total = vatApplied ? taxable * VAT_RATE : total;
+        const total = vatApplied ? taxable * VAT_RATE : taxable;
 
         const newQuote: Quote = { 
             id: uuidv4(), 
@@ -954,58 +957,6 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           }
           break;
       }
-      case 'TRANSFER_BETWEEN_PARTNERS': {
-          const { fromPartnerId, toPartnerId, amount, date, description, paymentMethod } = action.payload;
-          const fromPartner = draft.state.partners.find(p => p.id === fromPartnerId);
-          const toPartner = draft.state.partners.find(p => p.id === toPartnerId);
-
-          if (fromPartner && toPartner) {
-              // --- 1. Create a snapshot of the current state BEFORE the transaction ---
-              const currentBalances = draft.state.partners.map(p => {
-                  const entries = yearData.partnerLedger.filter(e => e.partnerId === p.id);
-                  const balance = entries.reduce((acc, e) => acc + e.amount, 0);
-                  return { partnerId: p.id, partnerName: p.name, balance };
-              });
-              const totalSystemBalance = currentBalances.reduce((acc, p) => acc + p.balance, 0);
-              const targetPerPartner = totalSystemBalance / draft.state.partners.length;
-
-              const snapshot: PartnerSettlement = {
-                  id: uuidv4(),
-                  date: date, // Use the transaction date for the snapshot
-                  totalSystemBalance,
-                  targetPerPartner,
-                  partnerSnapshots: currentBalances.map(p => ({
-                      ...p,
-                      status: (p.balance > targetPerPartner + 0.01) ? 'debtor' : (p.balance < targetPerPartner - 0.01) ? 'creditor' : 'balanced'
-                  }))
-              };
-              yearData.partnerSettlements.push(snapshot);
-
-              // --- 2. Apply the transaction ---
-              const commonDescription = `${description} (${paymentMethod || 'N/D'})`;
-              
-              // Sender GIVES money. Balance decreases.
-              yearData.partnerLedger.push({
-                  id: uuidv4(),
-                  date,
-                  description: `Trasferimento a ${toPartner.name}: ${commonDescription}`,
-                  amount: -amount,
-                  partnerId: fromPartnerId,
-                  paymentMethod: paymentMethod
-              });
-
-              // Receiver GETS money. Balance increases.
-              yearData.partnerLedger.push({
-                  id: uuidv4(),
-                  date,
-                  description: `Trasferimento da ${fromPartner.name}: ${commonDescription}`,
-                  amount: amount,
-                  partnerId: toPartnerId,
-                  paymentMethod: paymentMethod
-              });
-          }
-          break;
-      }
       case 'ARCHIVE_PARTNER_SETTLEMENT': {
           const settlement = action.payload;
           yearData.partnerSettlements.push(settlement);
@@ -1018,7 +969,8 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                     date: settlement.date,
                     description: `Chiusura Periodo / Archiviazione Conteggio`,
                     amount: -snap.balance, // Opposite of current balance to zero it out
-                    partnerId: snap.partnerId
+                    partnerId: snap.partnerId,
+                    relatedDocumentId: settlement.id
                 });
               }
           });
@@ -1158,6 +1110,150 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
             }
             break;
         }
+      case 'TRANSFER_BETWEEN_PARTNERS': {
+        const { fromPartnerId, toPartnerId, amount, date, description, paymentMethod } = action.payload;
+        const fromPartner = draft.state.partners.find(p => p.id === fromPartnerId);
+        const toPartner = draft.state.partners.find(p => p.id === toPartnerId);
+
+        if (fromPartner && toPartner) {
+          const commonDescription = `${description} (${paymentMethod || 'N/D'})`;
+
+          // Sender GIVES money. Balance decreases.
+          yearData.partnerLedger.push({
+            id: uuidv4(),
+            date,
+            description: `Trasferimento a ${toPartner.name}: ${commonDescription}`,
+            amount: -amount,
+            partnerId: fromPartnerId,
+            paymentMethod: paymentMethod
+          });
+
+          // Receiver GETS money. Balance increases.
+          yearData.partnerLedger.push({
+            id: uuidv4(),
+            date,
+            description: `Trasferimento da ${fromPartner.name}: ${commonDescription}`,
+            amount: amount,
+            partnerId: toPartnerId,
+            paymentMethod: paymentMethod
+          });
+        }
+        break;
+      }
+      case 'RECORD_SETTLEMENT_PAYMENT': {
+        const { fromPartnerId, toPartnerId, fromPartnerName, toPartnerName, amount, date, paymentMethod, isTotalSettlement } = action.payload;
+
+        // --- 1. Create a snapshot of the current state BEFORE the transaction ---
+        const currentBalances = draft.state.partners.map(p => {
+          const entries = yearData.partnerLedger.filter(e => e.partnerId === p.id);
+          const balance = entries.reduce((acc, e) => acc + e.amount, 0);
+          return { partnerId: p.id, partnerName: p.name, balance };
+        });
+        const totalSystemBalance = currentBalances.reduce((acc, p) => acc + p.balance, 0);
+        const targetPerPartner = totalSystemBalance / draft.state.partners.length;
+
+        const snapshot: PartnerSettlement = {
+          id: uuidv4(),
+          date: date,
+          totalSystemBalance,
+          targetPerPartner,
+          partnerSnapshots: currentBalances.map(p => ({
+            ...p,
+            status: (p.balance > targetPerPartner + 0.01) ? 'debtor' : (p.balance < targetPerPartner - 0.01) ? 'creditor' : 'balanced'
+          })),
+          payment: {
+            amount,
+            paymentMethod,
+            fromPartnerId,
+            fromPartnerName,
+            toPartnerId,
+            toPartnerName
+          }
+        };
+        yearData.partnerSettlements.push(snapshot);
+
+        // --- 2. Apply the transaction to the ledger ---
+        const description = `Pareggio conti: ${fromPartnerName} versa a ${toPartnerName}`;
+        yearData.partnerLedger.push({
+          id: uuidv4(),
+          date,
+          description,
+          amount: -amount,
+          partnerId: fromPartnerId,
+          paymentMethod,
+          relatedDocumentId: snapshot.id
+        });
+        yearData.partnerLedger.push({
+          id: uuidv4(),
+          date,
+          description,
+          amount: amount,
+          partnerId: toPartnerId,
+          paymentMethod,
+          relatedDocumentId: snapshot.id
+        });
+
+        // --- 3. If it's a total settlement, archive and reset ---
+        if (isTotalSettlement) {
+          const archiveBalances = draft.state.partners.map(p => {
+            const entries = yearData.partnerLedger.filter(e => e.partnerId === p.id);
+            return {
+              partnerId: p.id,
+              balance: entries.reduce((acc, e) => acc + e.amount, 0)
+            };
+          });
+
+          archiveBalances.forEach(snap => {
+            if (snap.balance !== 0) {
+              yearData.partnerLedger.push({
+                id: uuidv4(),
+                date: date,
+                description: `Chiusura Periodo / Azzeramento Saldo`,
+                amount: -snap.balance,
+                partnerId: snap.partnerId,
+                relatedDocumentId: snapshot.id
+              });
+            }
+          });
+        }
+        break;
+      }
+      case 'UPDATE_SETTLEMENT': {
+        const { settlementId, updatedPayment } = action.payload;
+        const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
+
+        if (settlementIndex === -1) {
+            alert("Chiusura non trovata.");
+            break;
+        }
+
+        const settlementToUpdate = yearData.partnerSettlements[settlementIndex];
+        settlementToUpdate.payment = updatedPayment;
+        settlementToUpdate.date = updatedPayment.date;
+
+        yearData.partnerLedger.forEach(entry => {
+            if (entry.relatedDocumentId === settlementId) {
+                entry.date = updatedPayment.date;
+                entry.amount = entry.partnerId === updatedPayment.fromPartnerId ? -updatedPayment.amount : updatedPayment.amount;
+            }
+        });
+        break;
+      }
+      case 'DELETE_SETTLEMENT': {
+        const { settlementId } = action.payload;
+        const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
+
+        if (settlementIndex === -1) {
+          alert("Chiusura non trovata.");
+          break;
+        }
+
+        // Proceed with deletion
+        yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== settlementId);
+        yearData.partnerSettlements.splice(settlementIndex, 1);
+        
+        break;
+      }
     }
   });
 };

@@ -1166,16 +1166,20 @@ const SettlementPaymentModal: React.FC<{
 
     const handleSave = () => {
         if (amount <= 0) return alert("Inserisci un importo valido.");
-        
+
+        const isTotalSettlement = Math.abs(amount - data.amount) < 0.01;
+
         dispatch({
-            type: 'TRANSFER_BETWEEN_PARTNERS',
-            payload: { 
-                fromPartnerId: data.fromId, 
-                toPartnerId: data.toId, 
-                amount, 
-                date, 
-                description: `Pareggio conti: ${data.fromName} versa a ${data.toName}`,
-                paymentMethod
+            type: 'RECORD_SETTLEMENT_PAYMENT',
+            payload: {
+                fromPartnerId: data.fromId,
+                fromPartnerName: data.fromName,
+                toPartnerId: data.toId,
+                toPartnerName: data.toName,
+                amount,
+                date,
+                paymentMethod,
+                isTotalSettlement
             }
         });
         onClose();
@@ -2984,6 +2988,38 @@ const PrintableCompletePartnerReport: React.FC<PrintableCompletePartnerReportPro
                     <p>Nessun pareggio necessario.</p>
                 )}
             </section>
+
+            <div style={{ pageBreakBefore: 'always' }}>
+              <h3 className="font-bold text-lg mb-4">Dettaglio Movimenti per Socio</h3>
+                {partners.map(partner => {
+                    const partnerEntries = ledgerEntries.filter(e => e.partnerId === partner.id);
+                    return (
+                        <section key={partner.id} className="mb-8" style={{ pageBreakInside: 'avoid' }}>
+                            <h4 className="font-bold text-md mb-2 border-b pb-2">{partner.name}</h4>
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr>
+                                        <th className="p-1 border text-left">Data</th>
+                                        <th className="p-1 border text-left">Descrizione</th>
+                                        <th className="p-1 border text-right">Importo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {partnerEntries.map(entry => (
+                                        <tr key={entry.id}>
+                                            <td className="p-1 border">{new Date(entry.date).toLocaleDateString()}</td>
+                                            <td className="p-1 border">{entry.description}</td>
+                                            <td className={`p-1 border text-right font-mono ${entry.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {entry.amount >= 0 ? '+' : ''}€{entry.amount.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </section>
+                    );
+                })}
+            </div>
         </div>
     );
 };
@@ -3048,36 +3084,160 @@ const PartnerDetailModal: React.FC<{ isOpen: boolean, onClose: () => void, partn
     );
 }
 
-const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => void, settlements: PartnerSettlement[] }> = ({ isOpen, onClose, settlements }) => {
-    // Sort by date desc
-    const sortedSettlements = useMemo(() => {
-        return [...settlements].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [settlements]);
+const EditSettlementPaymentModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    settlement: PartnerSettlement | null 
+}> = ({ isOpen, onClose, settlement }) => {
+    const { dispatch } = useAppContext();
+    const [amount, setAmount] = useState(0);
+    const [date, setDate] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+
+    useEffect(() => {
+        if (settlement?.payment) {
+            setAmount(settlement.payment.amount);
+            setDate(settlement.payment.date);
+            setPaymentMethod(settlement.payment.paymentMethod || '');
+        }
+    }, [settlement]);
+
+    if (!settlement) return null;
+
+    const handleSave = () => {
+        if (amount <= 0) return alert("Inserisci un importo valido.");
+        
+        dispatch({
+            type: 'UPDATE_SETTLEMENT',
+            payload: {
+                settlementId: settlement.id,
+                updatedPayment: {
+                    ...settlement.payment!,
+                    amount,
+                    date,
+                    paymentMethod,
+                }
+            }
+        });
+        onClose();
+    };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Storico Chiusure Periodo">
+        <Modal isOpen={isOpen} onClose={onClose} title="Modifica Pagamento Chiusura">
+            <div className="space-y-4">
+                 <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                    <div className="text-center flex-1">
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{settlement.payment?.fromPartnerName}</p>
+                    </div>
+                    <ArrowRight className="text-gray-400 mx-2" />
+                    <div className="text-center flex-1">
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{settlement.payment?.toPartnerName}</p>
+                    </div>
+                </div>
+                <Input type="number" label="Importo Versato" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} step="0.01" />
+                <Input type="date" label="Data Pagamento" value={date} onChange={e => setDate(e.target.value)} />
+                <Input 
+                    label="Modalità di Pagamento" 
+                    value={paymentMethod} 
+                    onChange={e => setPaymentMethod(e.target.value)} 
+                    placeholder="Es. Bonifico, Contanti..."
+                />
+                <div className="flex justify-end pt-4 space-x-2">
+                    <Button variant="secondary" onClick={onClose}>Annulla</Button>
+                    <Button onClick={handleSave}>Salva Modifiche</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => void, settlements: PartnerSettlement[] }> = ({ isOpen, onClose, settlements }) => {
+    const { state, settings, dispatch } = useAppContext();
+    const yearData = state[settings.currentYear];
+    const [selectedSettlement, setSelectedSettlement] = useState<PartnerSettlement | null>(null);
+    const [editingSettlement, setEditingSettlement] = useState<PartnerSettlement | null>(null);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [deletingSettlementId, setDeletingSettlementId] = useState<string | null>(null);
+
+    const sortedSettlements = useMemo(() => {
+        return [...settlements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [settlements]);
+
+
+    const handleViewDetails = (settlement: PartnerSettlement) => {
+        setSelectedSettlement(settlement);
+    };
+
+    const handleDelete = (settlementId: string) => {
+        setDeletingSettlementId(settlementId);
+        setIsConfirmOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (deletingSettlementId) {
+            dispatch({ type: 'DELETE_SETTLEMENT', payload: { settlementId: deletingSettlementId } });
+        }
+        setIsConfirmOpen(false);
+        setDeletingSettlementId(null);
+    };
+
+    const DetailsView = () => {
+        if (!selectedSettlement) return null;
+        return (
+            <Modal isOpen={!!selectedSettlement} onClose={() => setSelectedSettlement(null)} title={`Dettaglio Chiusura del ${new Date(selectedSettlement.date).toLocaleDateString()}`}>
+                <div className="space-y-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <h4 className="font-semibold mb-2">Riepilogo Pagamento</h4>
+                        <div className="text-sm space-y-1">
+                            <p><strong>Importo:</strong> €{selectedSettlement.payment?.amount.toFixed(2)}</p>
+                            <p><strong>Metodo:</strong> {selectedSettlement.payment?.paymentMethod || 'Non specificato'}</p>
+                            <p><strong>Da:</strong> {selectedSettlement.payment?.fromPartnerName}</p>
+                            <p><strong>A:</strong> {selectedSettlement.payment?.toPartnerName}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold mb-2">Saldi dei Soci (Prima del Pagamento)</h4>
+                        <Table headers={["Socio", "Saldo", "Stato"]}>
+                            {selectedSettlement.partnerSnapshots.map(snap => (
+                                <tr key={snap.partnerId}>
+                                    <td className="px-6 py-4">{snap.partnerName}</td>
+                                    <td className={`px-6 py-4 font-bold ${snap.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        €{snap.balance.toFixed(2)}
+                                    </td>
+                                    <td className="px-6 py-4">{snap.status}</td>
+                                </tr>
+                            ))}
+                        </Table>
+                    </div>
+                </div>
+            </Modal>
+        );
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Storico Chiusure e Pareggi">
             <div className="max-h-[60vh] overflow-y-auto">
-                <Table headers={["Data Chiusura", "Totale Sistema", "Target/Socio", "Dettaglio Saldi"]}>
-                    {sortedSettlements.map(settlement => (
-                        <tr key={settlement.id}>
-                            <td className="px-6 py-4">{new Date(settlement.date).toLocaleDateString()}</td>
-                            <td className="px-6 py-4">€{settlement.totalSystemBalance.toFixed(2)}</td>
-                            <td className="px-6 py-4">€{settlement.targetPerPartner.toFixed(2)}</td>
-                            <td className="px-6 py-4">
-                                <div className="text-sm">
-                                    {settlement.partnerSnapshots.map(snap => (
-                                        <div key={snap.partnerId} className="flex justify-between border-b dark:border-gray-700 last:border-0 pb-1 mb-1">
-                                            <span className="font-medium">{snap.partnerName}:</span>
-                                            <span className={snap.balance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                €{snap.balance.toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </Table>
+                {sortedSettlements.map((settlement, idx) => (
+                    <div key={settlement.id} className="p-4 mb-2 border rounded-lg flex justify-between items-center">
+                        <div>
+                            <p className="font-bold">{new Date(settlement.date).toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            <p className="text-sm text-gray-500">
+                                Pagamento di €{settlement.payment?.amount.toFixed(2)} da {settlement.payment?.fromPartnerName} a {settlement.payment?.toPartnerName}
+                            </p>
+                            <p className="text-xs text-gray-400">Metodo: {settlement.payment?.paymentMethod || 'N/D'}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="secondary" onClick={() => handleViewDetails(settlement)}>Vedi Dettagli</Button>
+                           <Button variant="ghost" onClick={() => setEditingSettlement(settlement)}><Edit size={16}/></Button>
+                          <Button 
+                            variant="danger" 
+                            onClick={() => handleDelete(settlement.id)}
+                          >
+                            Elimina
+                          </Button>
+                        </div>
+                    </div>
+                ))}
                 {sortedSettlements.length === 0 && (
                     <div className="text-center p-8 text-gray-500 italic">
                         Nessuna chiusura archiviata.
@@ -3087,6 +3247,19 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
             <div className="flex justify-end pt-4">
                 <Button variant="secondary" onClick={onClose}>Chiudi</Button>
             </div>
+            <DetailsView />
+            <EditSettlementPaymentModal 
+                isOpen={!!editingSettlement} 
+                onClose={() => setEditingSettlement(null)} 
+                settlement={editingSettlement}
+            />
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="Conferma Eliminazione"
+                message="Sei sicuro di voler eliminare questa chiusura? L'operazione è irreversibile e potrebbe causare incongruenze nei dati se sono state registrate altre operazioni successivamente."
+            />
         </Modal>
     );
 };
