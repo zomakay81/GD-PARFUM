@@ -969,7 +969,8 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
                     date: settlement.date,
                     description: `Chiusura Periodo / Archiviazione Conteggio`,
                     amount: -snap.balance, // Opposite of current balance to zero it out
-                    partnerId: snap.partnerId
+                    partnerId: snap.partnerId,
+                    relatedDocumentId: settlement.id
                 });
               }
           });
