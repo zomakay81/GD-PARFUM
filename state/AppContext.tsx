@@ -1219,9 +1219,10 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
       case 'UPDATE_LAST_SETTLEMENT': {
         const { settlementId, updatedPayment } = action.payload;
         const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
+        const settlementsCount = yearData.partnerSettlements.length;
 
-        if (settlementIndex === -1 || settlementIndex !== yearData.partnerSettlements.length - 1) {
-            alert("È possibile modificare solo l'ultima chiusura registrata.");
+        if (settlementIndex === -1 || settlementIndex < settlementsCount - 2) {
+            alert("È possibile modificare solo le ultime due chiusure registrate.");
             break;
         }
 
@@ -1246,9 +1247,10 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           break;
         }
 
-        // Ensure it's the last one
-        if (settlementIndex !== yearData.partnerSettlements.length - 1) {
-          alert("È possibile eliminare solo l'ultima chiusura registrata.");
+        // Allow deleting the last two settlements
+        const settlenentsCount = yearData.partnerSettlements.length;
+        if (settlementIndex < settlenentsCount - 2) {
+          alert("È possibile eliminare solo le ultime due chiusure registrate.");
           break;
         }
 

@@ -3161,17 +3161,15 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
         return [...settlements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [settlements]);
 
-    const isDeleteDisabled = useMemo(() => {
-        if (sortedSettlements.length === 0) return true;
-
-        const lastSettlement = sortedSettlements[0];
-        const lastSettlementDate = new Date(lastSettlement.date);
+    const isDeleteDisabled = useCallback((settlement: PartnerSettlement) => {
+        const settlementDate = new Date(settlement.date);
 
         return yearData.partnerLedger.some(entry => {
             const entryDate = new Date(entry.date);
-            return entry.settlementId !== lastSettlement.id && entryDate > lastSettlementDate;
+            // Check if an entry is not related to the settlement in question AND is more recent.
+            return entry.relatedDocumentId !== settlement.id && entryDate > settlementDate;
         });
-    }, [sortedSettlements, yearData.partnerLedger]);
+    }, [yearData.partnerLedger]);
 
     const handleViewDetails = (settlement: PartnerSettlement) => {
         setSelectedSettlement(settlement);
@@ -3230,27 +3228,27 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button variant="secondary" onClick={() => handleViewDetails(settlement)}>Vedi Dettagli</Button>
-                          {idx === 0 && ( // Mostra solo per il più recente
-                            <>
-                              <div title={isDeleteDisabled ? "Non è possibile modificare l'ultima chiusura se sono presenti movimenti successivi." : "Modifica questa chiusura"}>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => setEditingSettlement(settlement)}
-                                  disabled={isDeleteDisabled}
-                                >
-                                  <Edit size={16} />
-                                </Button>
-                              </div>
-                              <div title={isDeleteDisabled ? "Non è possibile eliminare l'ultima chiusura se sono presenti movimenti successivi." : "Elimina questa chiusura"}>
-                                <Button
-                                  variant="danger"
-                                  onClick={() => handleDelete(settlement.id)}
-                                  disabled={isDeleteDisabled}
-                                >
-                                  Elimina
-                                </Button>
-                              </div>
-                            </>
+                          {idx < 2 && ( // Edit for the last two
+                            <div title={isDeleteDisabled(settlement) ? "Non è possibile modificare questa chiusura se sono presenti movimenti successivi." : "Modifica questa chiusura"}>
+                              <Button
+                                variant="ghost"
+                                onClick={() => setEditingSettlement(settlement)}
+                                disabled={isDeleteDisabled(settlement)}
+                              >
+                                <Edit size={16} />
+                              </Button>
+                            </div>
+                          )}
+                          {idx < 2 && ( // Delete for the last two
+                            <div title={isDeleteDisabled(settlement) ? "Non è possibile eliminare questa chiusura se sono presenti movimenti successivi." : "Elimina questa chiusura"}>
+                              <Button
+                                variant="danger"
+                                onClick={() => handleDelete(settlement.id)}
+                                disabled={isDeleteDisabled(settlement)}
+                              >
+                                Elimina
+                              </Button>
+                            </div>
                           )}
                         </div>
                     </div>

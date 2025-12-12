@@ -199,7 +199,7 @@ export interface PartnerLedgerEntry {
   description: string;
   amount: number;
   partnerId: string;
-  relatedDocumentId?: string;
+  relatedDocumentId?: string; // ID of Sale, StockLoad, Settlement, etc.
   paymentMethod?: string;
 }
 
