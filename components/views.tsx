@@ -3108,7 +3108,7 @@ const EditSettlementPaymentModal: React.FC<{
         if (amount <= 0) return alert("Inserisci un importo valido.");
 
         dispatch({
-            type: 'UPDATE_LAST_SETTLEMENT',
+            type: 'UPDATE_SETTLEMENT',
             payload: {
                 settlementId: settlement.id,
                 updatedPayment: {
@@ -3156,34 +3156,29 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
     const yearData = state[settings.currentYear];
     const [selectedSettlement, setSelectedSettlement] = useState<PartnerSettlement | null>(null);
     const [editingSettlement, setEditingSettlement] = useState<PartnerSettlement | null>(null);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [deletingSettlementId, setDeletingSettlementId] = useState<string | null>(null);
 
     const sortedSettlements = useMemo(() => {
         return [...settlements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [settlements]);
 
-    const isDeleteDisabled = useCallback((settlement: PartnerSettlement) => {
-        const settlementDate = new Date(settlement.date);
-        const allSettlementIds = new Set(settlements.map(s => s.id));
-
-        return yearData.partnerLedger.some(entry => {
-            const entryDate = new Date(entry.date);
-
-            const isLater = entryDate > settlementDate;
-            const isSettlementEntry = allSettlementIds.has(entry.relatedDocumentId || '');
-
-            // A transaction blocks deletion if it's more recent AND it's not another settlement.
-            return isLater && !isSettlementEntry;
-        });
-    }, [yearData.partnerLedger, settlements]);
 
     const handleViewDetails = (settlement: PartnerSettlement) => {
         setSelectedSettlement(settlement);
     };
 
     const handleDelete = (settlementId: string) => {
-        if (confirm("Sei sicuro di voler eliminare questa chiusura? L'azione è irreversibile.")) {
-            dispatch({ type: 'DELETE_LAST_SETTLEMENT', payload: { settlementId } });
+        setDeletingSettlementId(settlementId);
+        setIsConfirmOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (deletingSettlementId) {
+            dispatch({ type: 'DELETE_SETTLEMENT', payload: { settlementId: deletingSettlementId } });
         }
+        setIsConfirmOpen(false);
+        setDeletingSettlementId(null);
     };
 
     const DetailsView = () => {
@@ -3233,28 +3228,13 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button variant="secondary" onClick={() => handleViewDetails(settlement)}>Vedi Dettagli</Button>
-                          {idx < 2 && ( // Edit for the last two
-                            <div title={isDeleteDisabled(settlement) ? "Non è possibile modificare questa chiusura se sono presenti movimenti successivi." : "Modifica questa chiusura"}>
-                              <Button
-                                variant="ghost"
-                                onClick={() => setEditingSettlement(settlement)}
-                                disabled={isDeleteDisabled(settlement)}
-                              >
-                                <Edit size={16} />
-                              </Button>
-                            </div>
-                          )}
-                          {idx < 2 && ( // Delete for the last two
-                            <div title={isDeleteDisabled(settlement) ? "Non è possibile eliminare questa chiusura se sono presenti movimenti successivi." : "Elimina questa chiusura"}>
-                              <Button
-                                variant="danger"
-                                onClick={() => handleDelete(settlement.id)}
-                                disabled={isDeleteDisabled(settlement)}
-                              >
-                                Elimina
-                              </Button>
-                            </div>
-                          )}
+                           <Button variant="ghost" onClick={() => setEditingSettlement(settlement)}><Edit size={16}/></Button>
+                          <Button
+                            variant="danger"
+                            onClick={() => handleDelete(settlement.id)}
+                          >
+                            Elimina
+                          </Button>
                         </div>
                     </div>
                 ))}
@@ -3272,6 +3252,13 @@ const PartnerSettlementHistoryModal: React.FC<{ isOpen: boolean, onClose: () => 
                 isOpen={!!editingSettlement}
                 onClose={() => setEditingSettlement(null)}
                 settlement={editingSettlement}
+            />
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="Conferma Eliminazione"
+                message="Sei sicuro di voler eliminare questa chiusura? L'operazione è irreversibile e potrebbe causare incongruenze nei dati se sono state registrate altre operazioni successivamente."
             />
         </Modal>
     );

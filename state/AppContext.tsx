@@ -65,8 +65,8 @@ type Action =
   | { type: 'SETTLE_PARTNER_DEBT', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string } }
   | { type: 'TRANSFER_BETWEEN_PARTNERS', payload: { fromPartnerId: string; toPartnerId: string; amount: number; date: string; description: string, paymentMethod?: string } }
   | { type: 'RECORD_SETTLEMENT_PAYMENT', payload: { fromPartnerId: string; fromPartnerName: string; toPartnerId: string; toPartnerName: string; amount: number; date: string; paymentMethod?: string; isTotalSettlement: boolean } }
-  | { type: 'UPDATE_LAST_SETTLEMENT', payload: { settlementId: string; updatedPayment: SalePayment } }
-  | { type: 'DELETE_LAST_SETTLEMENT', payload: { settlementId: string } }
+  | { type: 'UPDATE_SETTLEMENT', payload: { settlementId: string; updatedPayment: SalePayment } }
+  | { type: 'DELETE_SETTLEMENT', payload: { settlementId: string } }
   | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
   // Azioni Spese
   | { type: 'ADD_EXPENSE'; payload: Expense }
@@ -1217,13 +1217,12 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         break;
       }
-      case 'UPDATE_LAST_SETTLEMENT': {
+      case 'UPDATE_SETTLEMENT': {
         const { settlementId, updatedPayment } = action.payload;
         const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
-        const settlementsCount = yearData.partnerSettlements.length;
 
-        if (settlementIndex === -1 || settlementIndex < settlementsCount - 2) {
-            alert("È possibile modificare solo le ultime due chiusure registrate.");
+        if (settlementIndex === -1) {
+            alert("Chiusura non trovata.");
             break;
         }
 
@@ -1239,7 +1238,7 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         });
         break;
       }
-      case 'DELETE_LAST_SETTLEMENT': {
+      case 'DELETE_SETTLEMENT': {
         const { settlementId } = action.payload;
         const settlementIndex = yearData.partnerSettlements.findIndex(s => s.id === settlementId);
 
@@ -1248,47 +1247,10 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
           break;
         }
 
-        // Allow deleting the last two settlements
-        const settlenentsCount = yearData.partnerSettlements.length;
-        if (settlementIndex < settlenentsCount - 2) {
-          alert("È possibile eliminare solo le ultime due chiusure registrate.");
-          break;
-        }
-
-        const settlement = yearData.partnerSettlements[settlementIndex];
-
-        // Find the ledger entries related to this settlement
-        const settlementLedgerEntries = yearData.partnerLedger.filter(e => e.relatedDocumentId === settlement.id);
-        if (settlementLedgerEntries.length === 0) {
-            // If no ledger entries are found for some reason, just remove the settlement record.
-            yearData.partnerSettlements.splice(settlementIndex, 1);
-            alert("Chiusura eliminata. Nessun movimento contabile associato trovato.");
-            break;
-        }
-
-        const settlementDate = new Date(settlement.date).getTime();
-
-        const allSettlementIds = new Set(yearData.partnerSettlements.map(s => s.id));
-
-        // Check for any other *non-settlement* partner-related transactions after this settlement
-        const hasSubsequentTransactions = yearData.partnerLedger.some(e => {
-            // Ignore entries related to ANY settlement
-            if (e.relatedDocumentId && allSettlementIds.has(e.relatedDocumentId)) {
-                return false;
-            }
-            const entryDate = new Date(e.date).getTime();
-            return entryDate > settlementDate;
-        });
-
-        if (hasSubsequentTransactions) {
-            alert("Impossibile eliminare questa chiusura perché sono state registrate altre transazioni finanziarie successivamente. Per correggere, crea una nuova transazione di pareggio.");
-            break;
-        }
-
         // Proceed with deletion
-        yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== settlement.id);
+        yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== settlementId);
         yearData.partnerSettlements.splice(settlementIndex, 1);
-        alert("Chiusura e movimenti contabili associati eliminati con successo.");
+
         break;
       }
     }
