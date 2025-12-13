@@ -55,6 +55,7 @@ type Action =
   | { type: 'DELETE_SALE'; payload: string }
   | { type: 'COLLECT_SALE'; payload: { saleId: string; partnerId: string; date: string; amount: number } }
   | { type: 'BULK_COLLECT_SALES'; payload: { collections: { saleId: string; amount: number }[]; partnerId: string; date: string } }
+  | { type: 'UNCOLLECT_SALE'; payload: { saleId: string } }
   // Azioni Preventivi
   | { type: 'ADD_QUOTE'; payload: Omit<Quote, 'id' | 'total' | 'subtotal' | 'type' | 'status'> }
   | { type: 'DELETE_QUOTE'; payload: string }
@@ -68,6 +69,7 @@ type Action =
   | { type: 'UPDATE_SETTLEMENT', payload: { settlementId: string; updatedPayment: SalePayment } }
   | { type: 'DELETE_SETTLEMENT', payload: { settlementId: string } }
   | { type: 'ARCHIVE_PARTNER_SETTLEMENT', payload: PartnerSettlement }
+  | { type: 'RESET_PARTNER_LEDGER' }
   // Azioni Spese
   | { type: 'ADD_EXPENSE'; payload: Expense }
   | { type: 'UPDATE_EXPENSE'; payload: Expense }
@@ -735,6 +737,23 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         }
         break;
       }
+      case 'UNCOLLECT_SALE': {
+        const { saleId } = action.payload;
+        const sale = yearData.sales.find(s => s.id === saleId);
+        if (sale) {
+            // Reset payment fields on the sale object
+            sale.payments = [];
+            sale.collectedByPartnerId = undefined;
+            sale.collectionDate = undefined;
+
+            // Remove all related ledger entries. This handles both single and bulk collections.
+            yearData.partnerLedger = yearData.partnerLedger.filter(e => {
+                if (!e.relatedDocumentId) return true;
+                return !e.relatedDocumentId.includes(saleId);
+            });
+        }
+        break;
+      }
       case 'COLLECT_SALE': {
         const { saleId, partnerId, date, amount } = action.payload;
         const sale = yearData.sales.find(s => s.id === saleId);
@@ -1252,6 +1271,13 @@ const appReducer = (state: { state: AppState; settings: Settings }, action: Acti
         yearData.partnerLedger = yearData.partnerLedger.filter(e => e.relatedDocumentId !== settlementId);
         yearData.partnerSettlements.splice(settlementIndex, 1);
 
+        break;
+      }
+      case 'RESET_PARTNER_LEDGER': {
+        if (yearData) {
+            yearData.partnerLedger = [];
+            yearData.partnerSettlements = [];
+        }
         break;
       }
     }

@@ -3433,6 +3433,16 @@ const PartnerLedgerView: React.FC = () => {
                              <Button className="w-full justify-start" variant="secondary" onClick={() => setHistoryModalOpen(true)}>
                                  <History className="mr-2" size={16} /> Storico Chiusure
                              </Button>
+                            <div className="border-t dark:border-gray-700 my-2 pt-2"></div>
+                             <Button
+                                className="w-full justify-start bg-red-600 hover:bg-red-700 text-white"
+                                onClick={() => {
+                                    if(confirm("Sei sicuro di voler azzerare TUTTI i movimenti dei soci per l'anno corrente? L'operazione è irreversibile e cancellerà anche lo storico delle chiusure.")) {
+                                        dispatch({ type: 'RESET_PARTNER_LEDGER' });
+                                    }
+                                }}>
+                                 <Trash2 className="mr-2" size={16} /> Azzera Conti Soci
+                             </Button>
                          </div>
                      </Card>
 
